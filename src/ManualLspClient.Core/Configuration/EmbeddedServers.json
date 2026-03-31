@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "roslyn": {
+      "command": "roslyn-language-server",
+      "arguments": [ "--stdio" ],
+      "environment": {
+        "DOTNET_ROLL_FORWARD": "LatestMajor"
+      }
+    }
+  }
+}
