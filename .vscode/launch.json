@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug ManualLspClient.Tui (roslyn)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build ManualLspClient.Tui",
+      "program": "${workspaceFolder}/src/ManualLspClient.Tui/bin/Debug/net10.0/ManualLspClient.Tui.dll",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "roslyn"
+      ],
+      "console": "externalTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

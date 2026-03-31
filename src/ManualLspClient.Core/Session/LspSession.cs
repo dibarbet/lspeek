@@ -20,11 +20,6 @@ public class LspSession : IAsyncDisposable
     public bool IsInitialized { get; private set; }
 
     /// <summary>
-    /// Raised when a notification is received from the server.
-    /// </summary>
-    public event Action<string, JsonElement?>? NotificationReceived;
-
-    /// <summary>
     /// Raised when a stderr line is received from the server.
     /// </summary>
     public event Action<string>? ServerStderrReceived;
@@ -46,11 +41,6 @@ public class LspSession : IAsyncDisposable
                 Id = id,
                 Json = json
             });
-        };
-
-        _connection.NotificationReceived += (method, json) =>
-        {
-            NotificationReceived?.Invoke(method, json);
         };
 
         _process.StderrLineReceived += line =>
@@ -98,12 +88,10 @@ public class LspSession : IAsyncDisposable
     /// </summary>
     public async Task<JsonElement> InitializeAsync(JsonElement? customParams = null, CancellationToken cancellationToken = default)
     {
-        object initParams = customParams.HasValue
-            ? (object)customParams.Value
-            : BuildDefaultInitializeParams();
+        var initParams = customParams ?? BuildDefaultInitializeParams();
 
         var result = await _connection.SendRequestAsync("initialize", initParams, cancellationToken);
-        await _connection.SendNotificationAsync("initialized", new { }, cancellationToken);
+        await _connection.SendNotificationAsync("initialized", JsonSerializer.SerializeToElement(new { }), cancellationToken);
 
         IsInitialized = true;
         return result;
@@ -112,7 +100,7 @@ public class LspSession : IAsyncDisposable
     /// <summary>
     /// Sends an arbitrary request and returns the response.
     /// </summary>
-    public Task<JsonElement> SendRequestAsync(string method, object? @params = null, CancellationToken cancellationToken = default)
+    public Task<JsonElement> SendRequestAsync(string method, JsonElement? @params = null, CancellationToken cancellationToken = default)
     {
         return _connection.SendRequestAsync(method, @params, cancellationToken);
     }
@@ -120,7 +108,7 @@ public class LspSession : IAsyncDisposable
     /// <summary>
     /// Sends an arbitrary notification.
     /// </summary>
-    public Task SendNotificationAsync(string method, object? @params = null, CancellationToken cancellationToken = default)
+    public Task SendNotificationAsync(string method, JsonElement? @params = null, CancellationToken cancellationToken = default)
     {
         return _connection.SendNotificationAsync(method, @params, cancellationToken);
     }
@@ -146,10 +134,10 @@ public class LspSession : IAsyncDisposable
     /// </summary>
     public IReadOnlyList<string> GetServerStderr() => _process.GetStderrLines();
 
-    private object BuildDefaultInitializeParams()
+    private static JsonElement BuildDefaultInitializeParams()
     {
         var workspaceUri = new Uri(Environment.CurrentDirectory).AbsoluteUri;
-        return new
+        return JsonSerializer.SerializeToElement(new
         {
             processId = Environment.ProcessId,
             capabilities = new
@@ -179,7 +167,7 @@ public class LspSession : IAsyncDisposable
             {
                 new { uri = workspaceUri, name = Path.GetFileName(Environment.CurrentDirectory) }
             }
-        };
+        });
     }
 
     public async ValueTask DisposeAsync()

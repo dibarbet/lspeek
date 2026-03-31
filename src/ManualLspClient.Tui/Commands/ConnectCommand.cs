@@ -1,12 +1,12 @@
 using ManualLspClient.Core.Configuration;
 using ManualLspClient.Core.MetaModel;
 using ManualLspClient.Core.Session;
-using ManualLspClient.Tui.Interactive;
+using ManualLspClient.Tui.Interactive.Framework;
+using ManualLspClient.Tui.Interactive.Views;
 using ManualLspClient.Tui.Scripting;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
-using System.Text.Json;
 
 namespace ManualLspClient.Tui.Commands;
 
@@ -102,8 +102,13 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
 
             // Enter interactive TUI
             var metaModel = LspMetaModelProvider.Load();
-            var tui = new TuiSession(session, metaModel);
-            await tui.RunAsync();
+            var store = new TuiStore(session, metaModel);
+            var host = new TuiHost(store)
+                .RegisterView(() => new MessageListView(store))
+                .RegisterView(() => new MessageDetailView(store))
+                .RegisterView(() => new MethodPickerView(store))
+                .RegisterView(() => new ParamsEditorView(store));
+            await host.RunAsync<MessageListView>();
         }
 
         return 0;

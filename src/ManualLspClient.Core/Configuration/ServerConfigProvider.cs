@@ -29,7 +29,6 @@ public class ServerConfigProvider
     {
         var provider = new ServerConfigProvider();
         provider.LoadEmbeddedServers();
-        provider.LoadUserServers();
         return provider;
     }
 
@@ -80,31 +79,10 @@ public class ServerConfigProvider
         ParseServersDocument(doc);
     }
 
-    private void LoadUserServers()
-    {
-        if (!File.Exists(UserConfigPath))
-            return;
-
-        try
-        {
-            var json = File.ReadAllText(UserConfigPath);
-            var doc = JsonDocument.Parse(json, new JsonDocumentOptions
-            {
-                CommentHandling = JsonCommentHandling.Skip,
-                AllowTrailingCommas = true
-            });
-            ParseServersDocument(doc);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Warning: Failed to load user config from {UserConfigPath}: {ex.Message}");
-        }
-    }
-
     private void ParseServersDocument(JsonDocument doc)
     {
         if (!doc.RootElement.TryGetProperty("servers", out var serversElement))
-            return;
+            throw new InvalidOperationException("Invalid server config format: missing 'servers' property.");
 
         foreach (var serverProperty in serversElement.EnumerateObject())
         {

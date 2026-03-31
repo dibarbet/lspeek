@@ -1,23 +1,21 @@
 using System.Text.Json;
-using Newtonsoft.Json.Linq;
+using System.Reflection;
 using StreamJsonRpc;
 
 namespace ManualLspClient.Core.Transport;
 
 /// <summary>
 /// Wraps a StreamJsonRpc connection over LSP-framed stdio streams.
-/// Registers catch-all notification handlers for server-sent notifications.
+/// Registers catch-all handlers for server-sent notifications and requests.
 /// </summary>
 public class LspConnection : IAsyncDisposable
 {
+    private static readonly MethodInfo NotificationHandlerMethod = typeof(NotificationRpcHandler).GetMethod(nameof(NotificationRpcHandler.Handle))!;
+    private static readonly MethodInfo RequestHandlerMethod = typeof(RequestRpcHandler).GetMethod(nameof(RequestRpcHandler.Handle))!;
+
     private readonly JsonRpc _rpc;
     private bool _disposed;
     private int _nextRequestId;
-
-    /// <summary>
-    /// Raised when a notification is received from the server.
-    /// </summary>
-    public event Action<string, JsonElement?>? NotificationReceived;
 
     /// <summary>
     /// Raised when any message is sent or received (for session logging).
@@ -30,9 +28,9 @@ public class LspConnection : IAsyncDisposable
     /// </summary>
     public event Action<string>? Disconnected;
 
-    public LspConnection(Stream sendStream, Stream receiveStream, IReadOnlyList<string>? serverNotificationMethods = null)
+    public LspConnection(Stream sendStream, Stream receiveStream)
     {
-        var formatter = new JsonMessageFormatter();
+        var formatter = new SystemTextJsonFormatter();
         var handler = new HeaderDelimitedMessageHandler(sendStream, receiveStream, formatter);
 
         _rpc = new JsonRpc(handler);
@@ -47,48 +45,45 @@ public class LspConnection : IAsyncDisposable
         };
 
         // Register handlers for known server→client notification methods
-        var methods = serverNotificationMethods ?? DefaultServerNotificationMethods;
+        var methods = DefaultServerNotificationMethods;
         foreach (var method in methods)
         {
-            var m = method; // capture for closure
-            _rpc.AddLocalRpcMethod(m, new Action<JToken?>(@params =>
-            {
-                var element = JTokenToJsonElement(@params);
-                MessageTraced?.Invoke(MessageDirection.Received, MessageType.Notification, m, null, element);
-                NotificationReceived?.Invoke(m, element);
-            }));
+            var target = new NotificationRpcHandler(this, method);
+            _rpc.AddLocalRpcMethod(
+                NotificationHandlerMethod,
+                target,
+                new JsonRpcMethodAttribute(method)
+                {
+                    UseSingleObjectParameterDeserialization = true
+                });
         }
 
         // Register handlers for common server→client requests (server expects a response)
         foreach (var method in DefaultServerRequestMethods)
         {
-            var m = method;
-            _rpc.AddLocalRpcMethod(m, new Func<JToken?, JToken?>(@params =>
-            {
-                var element = JTokenToJsonElement(@params);
-                MessageTraced?.Invoke(MessageDirection.Received, MessageType.Request, m, null, element);
-                NotificationReceived?.Invoke(m, element);
-                // Return empty success response
-                return JToken.Parse("null");
-            }));
+            var target = new RequestRpcHandler(this, method);
+            _rpc.AddLocalRpcMethod(
+                RequestHandlerMethod,
+                target,
+                new JsonRpcMethodAttribute(method)
+                {
+                    UseSingleObjectParameterDeserialization = true
+                });
         }
 
         _rpc.StartListening();
     }
 
-    public async Task<JsonElement> SendRequestAsync(string method, object? @params, CancellationToken cancellationToken = default)
+    public async Task<JsonElement> SendRequestAsync(string method, JsonElement? @params, CancellationToken cancellationToken = default)
     {
         var id = Interlocked.Increment(ref _nextRequestId);
-        var paramsElement = ObjectToJsonElement(@params);
+        var paramsElement = CloneJsonElement(@params);
         MessageTraced?.Invoke(MessageDirection.Sent, MessageType.Request, method, id, paramsElement);
-
-        // Convert to JToken for StreamJsonRpc (uses Newtonsoft.Json internally)
-        var jTokenParams = ObjectToJToken(@params);
 
         try
         {
-            var result = await _rpc.InvokeWithParameterObjectAsync<JToken>(method, jTokenParams, cancellationToken);
-            var resultElement = JTokenToJsonElement(result);
+            var result = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(method, paramsElement, cancellationToken);
+            var resultElement = CloneJsonElement(result);
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, resultElement);
             return resultElement ?? default;
         }
@@ -101,9 +96,8 @@ public class LspConnection : IAsyncDisposable
                 data = ex.ErrorData?.ToString()
             });
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
-            throw;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             var errorJson = JsonSerializer.SerializeToElement(new
             {
@@ -111,63 +105,46 @@ public class LspConnection : IAsyncDisposable
                 message = ex.Message
             });
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
-            throw;
         }
+        return default;
     }
 
-    public Task SendNotificationAsync(string method, object? @params, CancellationToken cancellationToken = default)
+    public Task SendNotificationAsync(string method, JsonElement? @params, CancellationToken cancellationToken = default)
     {
-        var paramsElement = ObjectToJsonElement(@params);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var paramsElement = CloneJsonElement(@params);
         MessageTraced?.Invoke(MessageDirection.Sent, MessageType.Notification, method, null, paramsElement);
 
-        var jTokenParams = ObjectToJToken(@params);
-        return _rpc.NotifyWithParameterObjectAsync(method, jTokenParams);
+        return _rpc.NotifyWithParameterObjectAsync(method, paramsElement);
     }
 
-    /// <summary>
-    /// Dynamically registers a handler for a server notification method.
-    /// </summary>
-    public void AddNotificationHandler(string method)
+    private void HandleInboundMessage(MessageType messageType, string method, JsonElement? payload)
     {
-        _rpc.AddLocalRpcMethod(method, new Action<JToken?>(@params =>
+        var element = CloneJsonElement(payload);
+        MessageTraced?.Invoke(MessageDirection.Received, messageType, method, null, element);
+    }
+
+    private static JsonElement? CloneJsonElement(JsonElement? value)
+    {
+        return value?.Clone();
+    }
+
+    private sealed class NotificationRpcHandler(LspConnection connection, string method)
+    {
+        public void Handle(JsonElement? @params)
         {
-            var element = JTokenToJsonElement(@params);
-            MessageTraced?.Invoke(MessageDirection.Received, MessageType.Notification, method, null, element);
-            NotificationReceived?.Invoke(method, element);
-        }));
-    }
-
-    private static JsonElement? ObjectToJsonElement(object? value)
-    {
-        if (value is null) return null;
-        if (value is JsonElement je) return je;
-        var json = JsonSerializer.Serialize(value);
-        return JsonDocument.Parse(json).RootElement.Clone();
-    }
-
-    /// <summary>
-    /// Converts any object to a JToken suitable for StreamJsonRpc (Newtonsoft.Json).
-    /// Handles System.Text.Json types (JsonElement) by round-tripping through JSON string.
-    /// </summary>
-    private static JToken? ObjectToJToken(object? value)
-    {
-        if (value is null) return null;
-        if (value is JToken jt) return jt;
-        if (value is JsonElement je)
-        {
-            var json = je.GetRawText();
-            return JToken.Parse(json);
+            connection.HandleInboundMessage(MessageType.Notification, method, @params);
         }
-        // For anonymous objects / POCOs, serialize via System.Text.Json then parse as JToken
-        var serialized = JsonSerializer.Serialize(value);
-        return JToken.Parse(serialized);
     }
 
-    private static JsonElement? JTokenToJsonElement(JToken? token)
+    private sealed class RequestRpcHandler(LspConnection connection, string method)
     {
-        if (token is null || token.Type == JTokenType.Null) return null;
-        var json = token.ToString(Newtonsoft.Json.Formatting.None);
-        return JsonDocument.Parse(json).RootElement.Clone();
+        public object? Handle(JsonElement? @params)
+        {
+            connection.HandleInboundMessage(MessageType.Request, method, @params);
+            return null;
+        }
     }
 
     public async ValueTask DisposeAsync()
