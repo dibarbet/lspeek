@@ -22,9 +22,16 @@ public class LspServerProcess : IAsyncDisposable
     /// </summary>
     public event Action<string>? StderrLineReceived;
 
+    /// <summary>
+    /// Event raised when the server process exits.
+    /// </summary>
+    public event Action? Exited;
+
     private LspServerProcess(Process process)
     {
         _process = process;
+        _process.EnableRaisingEvents = true;
+        _process.Exited += (_, _) => Exited?.Invoke();
     }
 
     public static LspServerProcess Start(Configuration.ServerConfig config)

@@ -1,8 +1,8 @@
 {
   "servers": {
     "roslyn": {
-      "command": "roslyn-language-server",
-      "arguments": [ "--stdio" ],
+      "command": "dnx",
+      "arguments": [ "roslyn-language-server", "--yes", "--prerelease", "--stdio", "--autoLoadProjects" ],
       "environment": {
         "DOTNET_ROLL_FORWARD": "LatestMajor"
       }

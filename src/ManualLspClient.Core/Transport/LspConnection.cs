@@ -24,6 +24,12 @@ public class LspConnection : IAsyncDisposable
     /// </summary>
     public event Action<MessageDirection, MessageType, string, int?, JsonElement?>? MessageTraced;
 
+    /// <summary>
+    /// Raised when the JSON-RPC connection is lost.
+    /// Provides the reason and any associated exception message.
+    /// </summary>
+    public event Action<string>? Disconnected;
+
     public LspConnection(Stream sendStream, Stream receiveStream, IReadOnlyList<string>? serverNotificationMethods = null)
     {
         var formatter = new JsonMessageFormatter();
@@ -31,6 +37,14 @@ public class LspConnection : IAsyncDisposable
 
         _rpc = new JsonRpc(handler);
         _rpc.AllowModificationWhileListening = true;
+
+        _rpc.Disconnected += (_, args) =>
+        {
+            var reason = args.Reason.ToString();
+            var detail = args.Exception?.Message;
+            var message = detail is not null ? $"{reason}: {detail}" : reason;
+            Disconnected?.Invoke(message);
+        };
 
         // Register handlers for known server→client notification methods
         var methods = serverNotificationMethods ?? DefaultServerNotificationMethods;
@@ -85,6 +99,16 @@ public class LspConnection : IAsyncDisposable
                 code = ex.ErrorCode,
                 message = ex.Message,
                 data = ex.ErrorData?.ToString()
+            });
+            MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
+            throw;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var errorJson = JsonSerializer.SerializeToElement(new
+            {
+                code = -1,
+                message = ex.Message
             });
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
             throw;
@@ -194,6 +218,7 @@ public enum MessageType
 {
     Request,
     Response,
-    Notification
+    Notification,
+    Stderr
 }
 

@@ -76,7 +76,6 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
                 catch (Exception ex)
                 {
                     AnsiConsole.MarkupLine($"[red]Initialize failed:[/] {ex.Message}");
-                    return 1;
                 }
             }
 

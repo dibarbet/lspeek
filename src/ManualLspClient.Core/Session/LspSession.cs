@@ -55,7 +55,31 @@ public class LspSession : IAsyncDisposable
 
         _process.StderrLineReceived += line =>
         {
+            Log.AddStderrLine(line);
             ServerStderrReceived?.Invoke(line);
+        };
+
+        _connection.Disconnected += reason =>
+        {
+            Log.Add(new SessionMessage
+            {
+                Direction = MessageDirection.Received,
+                MessageType = MessageType.Notification,
+                Method = "$/connection.disconnected",
+                Json = System.Text.Json.JsonSerializer.SerializeToElement(new { reason }),
+                Status = MessageStatus.Error
+            });
+        };
+
+        _process.Exited += () =>
+        {
+            Log.Add(new SessionMessage
+            {
+                Direction = MessageDirection.Received,
+                MessageType = MessageType.Notification,
+                Method = "$/process.exited",
+                Status = MessageStatus.Error
+            });
         };
     }
 

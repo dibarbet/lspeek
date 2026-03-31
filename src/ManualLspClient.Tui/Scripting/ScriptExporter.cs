@@ -13,7 +13,9 @@ public static class ScriptExporter
     {
         var sentMessages = log.GetSentMessages();
 
-        var entries = sentMessages.Select(msg => new ScriptEntry
+        var entries = sentMessages
+            .Where(msg => !msg.IsStderr)
+            .Select(msg => new ScriptEntry
         {
             Type = msg.MessageType == MessageType.Notification ? "notification" : "request",
             Method = msg.Method,

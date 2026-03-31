@@ -44,23 +44,40 @@ public static class SessionLogView
 
         foreach (var msg in filtered)
         {
+            if (msg.IsStderr)
+            {
+                var timestamp = msg.Timestamp.ToString("HH:mm:ss.fff");
+                var lineCount = msg.StderrLines.Count;
+                var nodeLabel = $"[dim]{timestamp}[/] [red]!! stderr ({lineCount} line{(lineCount == 1 ? "" : "s")})[/]";
+                var node = tree.AddNode(nodeLabel);
+                var stderrText = string.Join('\n', msg.StderrLines.Take(20));
+                if (msg.StderrLines.Count > 20)
+                    stderrText += $"\n... ({msg.StderrLines.Count - 20} more lines)";
+                node.AddNode(new Panel(Markup.Escape(stderrText))
+                    .Border(BoxBorder.Rounded)
+                    .BorderColor(Color.Red));
+                continue;
+            }
+
             var directionIcon = msg.Direction == MessageDirection.Sent ? "→" : "←";
             var directionColor = msg.Direction == MessageDirection.Sent ? "cyan" : "yellow";
             var typeLabel = msg.MessageType.ToString().ToLowerInvariant();
             var idLabel = msg.Id.HasValue ? $" (id: {msg.Id})" : "";
-            var timestamp = msg.Timestamp.ToString("HH:mm:ss.fff");
-
-            var nodeLabel = $"[dim]{timestamp}[/] [{directionColor}]{directionIcon}[/] [bold]{Markup.Escape(msg.Method)}[/] [dim]{typeLabel}{idLabel}[/]";
-            var node = tree.AddNode(nodeLabel);
-
-            if (msg.Json.HasValue)
             {
-                var formatted = msg.GetFormattedJson();
-                if (formatted.Length > 1000)
-                    formatted = formatted[..1000] + "\n...";
-                node.AddNode(new Panel(Markup.Escape(formatted))
-                    .Border(BoxBorder.Rounded)
-                    .BorderColor(msg.Direction == MessageDirection.Sent ? Color.Cyan1 : Color.Yellow));
+                var timestamp = msg.Timestamp.ToString("HH:mm:ss.fff");
+
+                var nodeLabel = $"[dim]{timestamp}[/] [{directionColor}]{directionIcon}[/] [bold]{Markup.Escape(msg.Method)}[/] [dim]{typeLabel}{idLabel}[/]";
+                var node = tree.AddNode(nodeLabel);
+
+                if (msg.Json.HasValue)
+                {
+                    var formatted = msg.GetFormattedJson();
+                    if (formatted.Length > 1000)
+                        formatted = formatted[..1000] + "\n...";
+                    node.AddNode(new Panel(Markup.Escape(formatted))
+                        .Border(BoxBorder.Rounded)
+                        .BorderColor(msg.Direction == MessageDirection.Sent ? Color.Cyan1 : Color.Yellow));
+                }
             }
         }
 
