@@ -1,24 +1,11 @@
 # lspeek
 
-A terminal UI for interactively driving [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) servers. Send requests, inspect responses, and explore server capabilities — all from your terminal.
-
-## Install
-
-Requires **.NET 10 SDK** or later.
-
-```bash
-# install as a local tool (uses the repo's dotnet-tools.json)
-dotnet tool restore
-
-# or install globally from source
-dotnet pack src/Client.Tui
-dotnet tool install --global --add-source src/Client.Tui/bin/Release lspeek
-```
+A .NET tool terminal UI for interactively driving [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) servers. Send requests, inspect responses, and explore server capabilities — all from your terminal.
 
 ## Usage
 
 ```
-lspeek <server> [--no-init] [--json <PATH>] [--exit]
+dnx lspeek <server> [--no-init] [--json <PATH>] [--exit]
 ```
 
 | Argument / Option | Description |
@@ -31,11 +18,11 @@ lspeek <server> [--no-init] [--json <PATH>] [--exit]
 ### Examples
 
 ```bash
-lspeek roslyn                          # launch and connect to Roslyn
-lspeek roslyn --no-init                # skip handshake
-lspeek roslyn --json replay.json       # run a script then enter TUI
-lspeek roslyn --json replay.json --exit # run a script and exit
-lspeek ./my-server.json                # use a custom server config
+dnx lspeek roslyn                          # launch and connect to Roslyn
+dnx lspeek roslyn --no-init                # skip handshake
+dnx lspeek roslyn --json replay.json       # run a script then enter TUI
+dnx lspeek roslyn --json replay.json --exit # run a script and exit
+dnx lspeek ./my-server.json                # use a custom server config
 ```
 
 ## Built-in Servers
