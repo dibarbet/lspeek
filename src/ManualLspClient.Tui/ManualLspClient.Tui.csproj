@@ -18,6 +18,9 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>lsp-client</ToolCommandName>
     <PackageId>ManualLspClient</PackageId>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
 </Project>
