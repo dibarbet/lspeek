@@ -37,6 +37,12 @@ public class TuiHost
         initialView.OnEnter(args);
         _viewStack.Push(initialView);
 
+        // Fire-and-forget auto-initialize so it happens inside the TUI
+        if (_store.AutoInit && !_store.IsInitialized)
+        {
+            _ = _store.InitializeAsync();
+        }
+
         while (!_store.CancellationToken.IsCancellationRequested && _viewStack.Count > 0)
         {
             Render();
@@ -69,7 +75,7 @@ public class TuiHost
         var initText = _store.IsInitialized ? "[green]Init[/]" : "[yellow]No Init[/]";
         var msgCount = _store.MessageCount;
 
-        var headerText = $" ManualLspClient - Session: [bold]{Markup.Escape(_store.ServerName)}[/]";
+        var headerText = $" lspeek - Session: [bold]{Markup.Escape(_store.ServerName)}[/]";
         var rightText = $"Server: {statusIcon} {statusText}  {pidText}  {initText}  Messages: {msgCount} ";
         ctx.WritePaddedLine($"{headerText}[dim] │ [/]{rightText}");
         ctx.WritePaddedLine($"[blue]{new string('─', ctx.TermWidth - 1)}[/]");

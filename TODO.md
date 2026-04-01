@@ -1,4 +1,4 @@
-# ManualLspClient TODO
+# lspeek TODO
 
 ## Bugs
 

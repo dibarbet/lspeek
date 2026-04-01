@@ -25,10 +25,27 @@ public class TuiStore
     /// </summary>
     public int SelectedIndex { get; set; } = -1;
 
+    public bool AutoInit { get; set; }
+
     public TuiStore(LspSession session, LspMetaModelProvider metaModel)
     {
         _session = session;
         MetaModel = metaModel;
+    }
+
+    /// <summary>
+    /// Sends the initialize request and initialized notification in the background.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            await _session.InitializeAsync(cancellationToken: _cts.Token);
+        }
+        catch (Exception)
+        {
+            // Initialize failures are visible in the session log
+        }
     }
 
     // ── Session data accessors ──

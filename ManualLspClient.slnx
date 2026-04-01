@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/ManualLspClient.Core/ManualLspClient.Core.csproj" />
-    <Project Path="src/ManualLspClient.Tui/ManualLspClient.Tui.csproj" />
-  </Folder>
-</Solution>

@@ -14,7 +14,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-│ ManualLspClient - Session: roslyn                                     Server: Running PID 42 │
+│ lspeek - Session: roslyn                                              Server: Running PID 42 │
 ├──────────────────────────────────────────────────────────────────────────────────────────────┤
 │ Session Log (collapsed by default)                                                           │
 │                                                                                              │

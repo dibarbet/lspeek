@@ -1,0 +1,62 @@
+[
+  {
+    "type": "request",
+    "method": "initialize",
+    "params": {
+      "processId": 45088,
+      "capabilities": {
+        "textDocument": {
+          "synchronization": {
+            "dynamicRegistration": true
+          },
+          "completion": {
+            "dynamicRegistration": true,
+            "completionItem": {
+              "snippetSupport": true
+            }
+          },
+          "hover": {
+            "dynamicRegistration": true
+          },
+          "definition": {
+            "dynamicRegistration": true
+          },
+          "references": {
+            "dynamicRegistration": true
+          },
+          "documentSymbol": {
+            "dynamicRegistration": true
+          },
+          "diagnostics": {
+            "dynamicRegistration": true
+          }
+        },
+        "workspace": {
+          "workspaceFolders": true,
+          "didChangeConfiguration": {
+            "dynamicRegistration": true
+          }
+        }
+      },
+      "rootUri": "file:///C:/Users/dabarbet/source/repos/lspeek",
+      "workspaceFolders": [
+        {
+          "uri": "file:///C:/Users/dabarbet/source/repos/lspeek",
+          "name": "lspeek"
+        }
+      ]
+    }
+  },
+  {
+    "type": "notification",
+    "method": "initialized",
+    "params": {}
+  },
+  {
+    "type": "request",
+    "method": "workspace/symbol",
+    "params": {
+      "query": "\u003Cstring\u003E"
+    }
+  }
+]

@@ -2,10 +2,10 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "manuallspclient": {
+    "lspeek": {
       "version": "1.0.0",
       "commands": [
-        "lsp-client"
+        "lspeek"
       ],
       "rollForward": false
     }

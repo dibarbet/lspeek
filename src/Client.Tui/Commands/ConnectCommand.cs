@@ -33,6 +33,8 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
+        var isScriptMode = settings.JsonPath is not null;
+
         // Resolve server configuration
         var configProvider = ServerConfigProvider.Load();
         ServerConfig serverConfig;
@@ -42,67 +44,78 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
         }
         catch (ArgumentException ex)
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] {ex.Message}");
+            WriteError(isScriptMode, ex.Message);
             return 1;
         }
 
-        AnsiConsole.MarkupLine($"[bold blue]Starting LSP server:[/] {serverConfig.Name}");
-        AnsiConsole.MarkupLine($"[dim]Command:[/] {serverConfig.Command} {string.Join(" ", serverConfig.Arguments)}");
+        WriteStatus(
+            isScriptMode,
+            $"Starting LSP server: {serverConfig.Name}",
+            $"[bold blue]Starting LSP server:[/] {Markup.Escape(serverConfig.Name)}");
+        WriteStatus(
+            isScriptMode,
+            $"Command: {serverConfig.Command} {string.Join(" ", serverConfig.Arguments)}",
+            $"[dim]Command:[/] {Markup.Escape(serverConfig.Command)} {Markup.Escape(string.Join(" ", serverConfig.Arguments))}");
 
         // Start the LSP session
         LspSession session;
         try
         {
             session = LspSession.Start(serverConfig);
-            AnsiConsole.MarkupLine($"[green]Server started[/] (PID: {session.ServerProcessId})");
+            WriteStatus(
+                isScriptMode,
+                $"Server started (PID: {session.ServerProcessId})",
+                $"[green]Server started[/] (PID: {session.ServerProcessId})");
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[red]Failed to start server:[/] {ex.Message}");
+            WriteError(isScriptMode, $"Failed to start server: {ex.Message}");
             return 1;
         }
 
         await using (session)
         {
-            // Auto-initialize unless --no-init
-            if (!settings.NoInit)
-            {
-                try
-                {
-                    AnsiConsole.MarkupLine("[dim]Sending initialize...[/]");
-                    var result = await session.InitializeAsync();
-                    AnsiConsole.MarkupLine("[green]Initialize succeeded[/]");
-                }
-                catch (Exception ex)
-                {
-                    AnsiConsole.MarkupLine($"[red]Initialize failed:[/] {ex.Message}");
-                }
-            }
+            var hasScript = settings.JsonPath is not null;
 
             // Run JSON script if provided
             if (settings.JsonPath is not null)
             {
+                var script = ScriptFile.Load(settings.JsonPath);
                 var runner = new ScriptRunner(session);
                 try
                 {
-                    await runner.RunAsync(settings.JsonPath);
+                    await runner.RunAsync(script, settings.JsonPath, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[red]Script error:[/] {ex.Message}");
+                    WriteError(true, $"Script error: {ex.Message}");
                     if (settings.Exit) return 1;
                 }
 
                 if (settings.Exit)
                 {
-                    await session.ShutdownAsync();
+                    if (!script.EndsWithShutdownAndExit())
+                    {
+                        if (script.EndsWithShutdownRequest())
+                        {
+                            await session.SendNotificationAsync("exit", null, cancellationToken);
+                        }
+                        else if (!script.EndsWithExitNotification())
+                        {
+                            await session.ShutdownAsync(cancellationToken);
+                        }
+                    }
+
                     return 0;
                 }
             }
 
             // Enter interactive TUI
             var metaModel = LspMetaModelProvider.Load();
-            var store = new TuiStore(session, metaModel);
+            var store = new TuiStore(session, metaModel)
+            {
+                AutoInit = !hasScript && !settings.NoInit && !session.IsInitialized
+            };
             var host = new TuiHost(store)
                 .RegisterView(() => new MessageListView(store))
                 .RegisterView(() => new MessageDetailView(store))
@@ -112,5 +125,27 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
         }
 
         return 0;
+    }
+
+    private static void WriteStatus(bool scriptMode, string plainText, string markupText)
+    {
+        if (scriptMode)
+        {
+            Console.Error.WriteLine(plainText);
+            return;
+        }
+
+        AnsiConsole.MarkupLine(markupText);
+    }
+
+    private static void WriteError(bool scriptMode, string message)
+    {
+        if (scriptMode)
+        {
+            Console.Error.WriteLine(message);
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(message)}");
     }
 }

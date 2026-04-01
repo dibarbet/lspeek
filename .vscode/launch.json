@@ -2,17 +2,25 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug ManualLspClient.Tui (roslyn)",
+      "name": "Debug Client.Tui (roslyn)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build ManualLspClient.Tui",
-      "program": "${workspaceFolder}/src/ManualLspClient.Tui/bin/Debug/net10.0/ManualLspClient.Tui.dll",
+      "preLaunchTask": "build Client.Tui",
       "cwd": "${workspaceFolder}",
       "args": [
         "roslyn"
       ],
       "console": "externalTerminal",
-      "stopAtEntry": false
+      "stopAtEntry": false,
+      "windows": {
+        "program": "${workspaceFolder}/src/Client.Tui/bin/Debug/net10.0/win-x64/Client.Tui.dll"
+      },
+      "linux": {
+        "program": "${workspaceFolder}/src/Client.Tui/bin/Debug/net10.0/linux-x64/Client.Tui.dll"
+      },
+      "osx": {
+        "program": "${workspaceFolder}/src/Client.Tui/bin/Debug/net10.0/osx-arm64/Client.Tui.dll"
+      }
     }
   ]
 }

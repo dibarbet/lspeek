@@ -10,7 +10,7 @@ public class ServerConfigProvider
 {
     private static readonly string UserConfigDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".lsp-client");
+        ".lspeek");
 
     private static readonly string UserConfigPath = Path.Combine(UserConfigDirectory, "servers.json");
 

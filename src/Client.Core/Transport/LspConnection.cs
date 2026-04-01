@@ -12,6 +12,7 @@ public class LspConnection : IAsyncDisposable
 {
     private static readonly MethodInfo NotificationHandlerMethod = typeof(NotificationRpcHandler).GetMethod(nameof(NotificationRpcHandler.Handle))!;
     private static readonly MethodInfo RequestHandlerMethod = typeof(RequestRpcHandler).GetMethod(nameof(RequestRpcHandler.Handle))!;
+    private static readonly JsonElement NullJsonElement = JsonSerializer.SerializeToElement((object?)null);
 
     private readonly JsonRpc _rpc;
     private bool _disposed;
@@ -85,7 +86,7 @@ public class LspConnection : IAsyncDisposable
             var result = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(method, paramsElement, cancellationToken);
             var resultElement = CloneJsonElement(result);
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, resultElement);
-            return resultElement ?? default;
+            return resultElement ?? NullJsonElement;
         }
         catch (RemoteInvocationException ex)
         {
@@ -96,6 +97,7 @@ public class LspConnection : IAsyncDisposable
                 data = ex.ErrorData?.ToString()
             });
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
+            return errorJson;
         }
         catch (Exception ex)
         {
@@ -105,8 +107,8 @@ public class LspConnection : IAsyncDisposable
                 message = ex.Message
             });
             MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
+            return errorJson;
         }
-        return default;
     }
 
     public Task SendNotificationAsync(string method, JsonElement? @params, CancellationToken cancellationToken = default)

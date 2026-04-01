@@ -1,6 +1,7 @@
 using ManualLspClient.Core.Session;
 using ManualLspClient.Core.Transport;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ManualLspClient.Tui.Scripting;
 
@@ -19,7 +20,7 @@ public static class ScriptExporter
         {
             Type = msg.MessageType == MessageType.Notification ? "notification" : "request",
             Method = msg.Method,
-            Params = msg.Json
+            Params = NormalizeParams(msg.Method, msg.Json)
         }).ToList();
 
         var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions
@@ -29,5 +30,21 @@ public static class ScriptExporter
         });
 
         File.WriteAllText(outputPath, json);
+    }
+
+    private static JsonElement? NormalizeParams(string method, JsonElement? @params)
+    {
+        if (!method.Equals("initialize", StringComparison.OrdinalIgnoreCase) || @params is null)
+            return @params;
+
+        if (@params.Value.ValueKind != JsonValueKind.Object)
+            return @params;
+
+        var json = JsonNode.Parse(@params.Value.GetRawText())?.AsObject();
+        if (json is null)
+            return @params;
+
+        json["processId"] = null;
+        return JsonSerializer.SerializeToElement(json);
     }
 }

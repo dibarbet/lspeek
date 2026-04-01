@@ -90,10 +90,9 @@ public class LspSession : IAsyncDisposable
     {
         var initParams = customParams ?? BuildDefaultInitializeParams();
 
-        var result = await _connection.SendRequestAsync("initialize", initParams, cancellationToken);
-        await _connection.SendNotificationAsync("initialized", JsonSerializer.SerializeToElement(new { }), cancellationToken);
+        var result = await SendRequestAsync("initialize", initParams, cancellationToken);
+        await SendNotificationAsync("initialized", JsonSerializer.SerializeToElement(new { }), cancellationToken);
 
-        IsInitialized = true;
         return result;
     }
 
@@ -110,7 +109,14 @@ public class LspSession : IAsyncDisposable
     /// </summary>
     public Task SendNotificationAsync(string method, JsonElement? @params = null, CancellationToken cancellationToken = default)
     {
-        return _connection.SendNotificationAsync(method, @params, cancellationToken);
+        var sendTask = _connection.SendNotificationAsync(method, @params, cancellationToken);
+
+        if (method.Equals("initialized", StringComparison.OrdinalIgnoreCase))
+        {
+            IsInitialized = true;
+        }
+
+        return sendTask;
     }
 
     /// <summary>

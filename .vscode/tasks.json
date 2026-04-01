@@ -2,12 +2,12 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build ManualLspClient.Tui",
+      "label": "build Client.Tui",
       "type": "process",
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/ManualLspClient.Tui/ManualLspClient.Tui.csproj",
+        "${workspaceFolder}/src/Client.Tui/Client.Tui.csproj",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
