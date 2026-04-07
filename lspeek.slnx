@@ -3,4 +3,7 @@
     <Project Path="src/Client.Core/Client.Core.csproj" />
     <Project Path="src/Client.Tui/Client.Tui.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tests.Integration/Tests.Integration.csproj" />
+  </Folder>
 </Solution>
