@@ -14,6 +14,7 @@ public class LspSession : IAsyncDisposable
     private bool _disposed;
 
     public SessionLog Log { get; } = new();
+    public WorkDoneProgressTracker ProgressTracker { get; } = new();
     public ServerConfig ServerConfig { get; }
     public int ServerProcessId => _process.ProcessId;
     public bool IsServerRunning => !_process.HasExited;
@@ -42,6 +43,9 @@ public class LspSession : IAsyncDisposable
                 Json = json
             });
         };
+
+        // Wire session log → progress tracker
+        Log.MessageAdded += ProgressTracker.OnMessageAdded;
 
         _process.StderrLineReceived += line =>
         {
@@ -166,6 +170,10 @@ public class LspSession : IAsyncDisposable
                 {
                     workspaceFolders = true,
                     didChangeConfiguration = new { dynamicRegistration = true }
+                },
+                window = new
+                {
+                    workDoneProgress = true
                 }
             },
             rootUri = workspaceUri,

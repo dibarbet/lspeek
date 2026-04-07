@@ -58,6 +58,11 @@ public class TuiStore
     public string ServerName => _session.ServerConfig.Name;
     public CancellationToken CancellationToken => _cts.Token;
 
+    // ── Progress tracking ──
+
+    public IReadOnlyList<WorkDoneProgressItem> GetProgressItems() => _session.ProgressTracker.GetVisibleItems();
+    public bool HasActiveProgress => _session.ProgressTracker.HasVisibleItems;
+
     // ── Actions ──
 
     /// <summary>

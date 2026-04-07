@@ -1,3 +1,4 @@
+using ManualLspClient.Core.Session;
 using Spectre.Console;
 
 namespace ManualLspClient.Tui.Interactive.Framework;
@@ -62,6 +63,7 @@ public class TuiHost
         RenderHeader(ctx);
         _viewStack.Peek().Render(ctx);
         RenderFooter(ctx);
+        RenderProgressOverlay(ctx);
 
         // Clear anything below the footer
         Console.Write("\x1b[J");
@@ -96,18 +98,100 @@ public class TuiHost
     {
         if (_viewStack.Count == 0) return;
 
-        // Poll for input so the screen refreshes periodically
+        // Poll for input so the screen refreshes periodically.
+        // Use a shorter interval when progress items are active for smoother updates.
         while (!Console.KeyAvailable)
         {
             if (_store.CancellationToken.IsCancellationRequested) return;
-            await Task.Delay(500);
+            var delay = _store.HasActiveProgress ? 200 : 500;
+            await Task.Delay(delay);
             Render();
         }
 
-        var key = Console.ReadKey(true);
-        var nav = await _viewStack.Peek().HandleKeyAsync(key);
-        await ApplyNavigationAsync(nav);
+        // Drain all buffered keys before the next render so that holding
+        // a key down doesn't queue a render-per-keypress backlog.
+        // Stop early if a key triggers actual navigation (Push/Pop/etc.).
+        do
+        {
+            var key = Console.ReadKey(true);
+            var nav = await _viewStack.Peek().HandleKeyAsync(key);
+            if (nav is not Navigation.Stay)
+            {
+                await ApplyNavigationAsync(nav);
+                return;
+            }
+        } while (Console.KeyAvailable);
     }
+
+    // ── Progress overlay ──
+
+    private const int ProgressPanelWidth = 36;
+    private const int ProgressPanelInnerWidth = ProgressPanelWidth - 4; // "│ " left, " │" right
+
+    private void RenderProgressOverlay(RenderContext ctx)
+    {
+        var items = _store.GetProgressItems();
+        if (items.Count == 0) return;
+        if (ctx.TermWidth < ProgressPanelWidth + 20) return;
+
+        int startCol = ctx.TermWidth - ProgressPanelWidth + 1; // 1-based ANSI column
+        int startRow = 3; // 1-based, below 2-line header
+
+        // Limit items so the panel doesn't overflow the content area
+        int maxLines = Math.Max(1, ctx.AvailableLines - 2);
+        var visibleItems = items.Take(maxLines).ToList();
+
+        Console.Write("\x1b[s"); // save cursor
+
+        // Top border
+        var dashes = ProgressPanelWidth - 14; // "┌─ Progress " (12) + "─┐" (2)
+        Console.Write($"\x1b[{startRow};{startCol}H\x1b[36m┌─ Progress {new string('─', dashes)}┐\x1b[0m");
+
+        int row = startRow + 1;
+        foreach (var item in visibleItems)
+        {
+            if (item.State == ProgressItemState.Ended)
+            {
+                var title = TruncateRaw(item.Title, ProgressPanelInnerWidth - 2);
+                var pad = ProgressPanelInnerWidth - 2 - title.Length;
+                Console.Write($"\x1b[{row};{startCol}H\x1b[2m│ \x1b[32m✓\x1b[0m\x1b[2m {title}{new string(' ', pad)} │\x1b[0m");
+                row++;
+            }
+            else
+            {
+                // Title line with optional percentage
+                string pctSuffix = item.Percentage.HasValue ? $" {item.Percentage,3}%" : "";
+                int titleMax = ProgressPanelInnerWidth - 2 - pctSuffix.Length;
+                var title = TruncateRaw(item.Title, titleMax);
+                var pad = titleMax - title.Length;
+                Console.Write($"\x1b[{row};{startCol}H│ \x1b[33m●\x1b[0m {title}{new string(' ', pad)}{pctSuffix} │");
+                row++;
+
+                // Message line (if message exists and we have room)
+                if (item.Message is not null && row - startRow < maxLines)
+                {
+                    var msg = TruncateRaw(item.Message, ProgressPanelInnerWidth - 2);
+                    var msgPad = ProgressPanelInnerWidth - 2 - msg.Length;
+                    Console.Write($"\x1b[{row};{startCol}H│   \x1b[2m{msg}{new string(' ', Math.Max(0, msgPad))}\x1b[0m │");
+                    row++;
+                }
+            }
+        }
+
+        // Bottom border
+        Console.Write($"\x1b[{row};{startCol}H\x1b[36m└{new string('─', ProgressPanelWidth - 2)}┘\x1b[0m");
+
+        Console.Write("\x1b[u"); // restore cursor
+    }
+
+    private static string TruncateRaw(string text, int maxLen)
+    {
+        if (maxLen <= 0) return "";
+        if (text.Length <= maxLen) return text;
+        return text[..(maxLen - 1)] + "…";
+    }
+
+    // ── Navigation ──
 
     private async Task ApplyNavigationAsync(Navigation nav)
     {
