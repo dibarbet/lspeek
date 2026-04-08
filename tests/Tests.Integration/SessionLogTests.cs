@@ -234,4 +234,51 @@ public class SessionLogTests
         Assert.Equal("initialize", received[0].Method);
         Assert.Equal("initialized", received[1].Method);
     }
+
+    [Fact]
+    public async Task WorkDoneProgress_CreationAndNotificationsAppearInLog()
+    {
+        await using var harness = LspTestHarness.Create();
+
+        // Server creates a progress token — this is a request the client handles
+        await harness.Server.SendRequestAsync("window/workDoneProgress/create",
+            new { token = "test-progress-1" });
+
+        await harness.WaitForLogEntryAsync(m =>
+            m.Method == "window/workDoneProgress/create");
+
+        // Server sends $/progress begin
+        await harness.Server.SendNotificationAsync("$/progress", new
+        {
+            token = "test-progress-1",
+            value = new { kind = "begin", title = "Indexing", percentage = 0 }
+        });
+
+        // Server sends $/progress report
+        await harness.Server.SendNotificationAsync("$/progress", new
+        {
+            token = "test-progress-1",
+            value = new { kind = "report", message = "50% done", percentage = 50 }
+        });
+
+        // Server sends $/progress end
+        await harness.Server.SendNotificationAsync("$/progress", new
+        {
+            token = "test-progress-1",
+            value = new { kind = "end", message = "Done" }
+        });
+
+        // Small delay to allow async notifications to arrive
+        await Task.Delay(500);
+
+        // Verify: creation request should be in the log
+        var createMessages = harness.Log.GetFiltered(method: "window/workDoneProgress/create");
+        Assert.Single(createMessages);
+
+        // Verify: $/progress notifications should also be in the log
+        // This is expected to FAIL — StreamJsonRpc intercepts $/progress internally
+        // and never routes them to the registered notification handler.
+        var progressMessages = harness.Log.GetFiltered(method: "$/progress");
+        Assert.Equal(3, progressMessages.Count);
+    }
 }
