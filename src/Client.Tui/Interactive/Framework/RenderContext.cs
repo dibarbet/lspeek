@@ -59,6 +59,28 @@ public class RenderContext
     }
 
     /// <summary>
+    /// Wraps a line to the available terminal width using hard wraps so long
+    /// JSON strings remain visible without resizing the window.
+    /// </summary>
+    public static IReadOnlyList<string> WrapLine(string line, int maxWidth)
+    {
+        if (maxWidth <= 0)
+            return [""];
+
+        if (string.IsNullOrEmpty(line))
+            return [""];
+
+        var wrapped = new List<string>((line.Length / maxWidth) + 1);
+        for (var start = 0; start < line.Length; start += maxWidth)
+        {
+            var length = Math.Min(maxWidth, line.Length - start);
+            wrapped.Add(line.Substring(start, length));
+        }
+
+        return wrapped;
+    }
+
+    /// <summary>
     /// Clears remaining lines in the content area to remove stale content.
     /// </summary>
     public void ClearRemainingLines(int linesRendered)

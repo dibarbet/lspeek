@@ -6,7 +6,7 @@
 
 ## Features
 
-- [ ] **Full session export** — Export all messages (sent, received, stderr, diagnostics) to a file for easier searching and offline analysis. Current export only saves sent messages as a replayable script.
+- [x] **Full session export** — Export all messages (sent, received, stderr, diagnostics) to a file for easier searching and offline analysis. Current export only saves sent messages as a replayable script.
 - [ ] **External editor for JSON** — Open request JSON in VS Code or another real editor instead of the inline editor, for complex multi-line editing.
 - [ ] **Resolve request helper** — From a completion (or other) request/response in the log, provide an action to automatically build the corresponding resolve request with details pre-filled from a selected item.
 - [ ] **Wait for project load in JSON flow** — Support waiting for the server to finish loading the project (e.g. waiting for specific notifications or a ready signal) in the non-interactive JSON scripting flow, so that requests aren't sent before the server is ready.

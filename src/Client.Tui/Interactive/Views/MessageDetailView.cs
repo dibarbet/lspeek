@@ -153,6 +153,7 @@ public class MessageDetailView : ITuiView
     private int RenderMessageDetail(SessionMessage msg, RenderContext ctx)
     {
         int linesRendered = 0;
+        var contentWidth = Math.Max(1, ctx.TermWidth - 2);
 
         var arrow = msg.Direction == MessageDirection.Sent ? "Sent" : "Received";
         var typeLabel = msg.MessageType.ToString();
@@ -174,14 +175,14 @@ public class MessageDetailView : ITuiView
         {
             var label = msg.MessageType == MessageType.Response ? "Result" : "Params";
             var formatted = msg.GetFormattedJson();
-            var allLines = formatted.ReplaceLineEndings("\n").Split('\n');
+            var allLines = GetWrappedLines(formatted.ReplaceLineEndings("\n").Split('\n'), contentWidth);
             var jsonAvailable = Math.Max(3, ctx.AvailableLines - linesRendered - 1);
 
-            var maxOffset = Math.Max(0, allLines.Length - jsonAvailable);
+            var maxOffset = Math.Max(0, allLines.Count - jsonAvailable);
             _jsonScrollOffset = Math.Clamp(_jsonScrollOffset, 0, maxOffset);
 
-            var scrollInfo = allLines.Length > jsonAvailable
-                ? $" [dim]({_jsonScrollOffset + 1}–{Math.Min(_jsonScrollOffset + jsonAvailable, allLines.Length)} of {allLines.Length})[/]"
+            var scrollInfo = allLines.Count > jsonAvailable
+                ? $" [dim]({_jsonScrollOffset + 1}–{Math.Min(_jsonScrollOffset + jsonAvailable, allLines.Count)} of {allLines.Count})[/]"
                 : "";
 
             ctx.WritePaddedLine($"  [bold]{label}[/]{scrollInfo}");
@@ -190,8 +191,7 @@ public class MessageDetailView : ITuiView
             var visibleLines = allLines.Skip(_jsonScrollOffset).Take(jsonAvailable);
             foreach (var line in visibleLines)
             {
-                var display = RenderContext.TruncateLine(line, ctx.TermWidth - 2);
-                ctx.WritePaddedLine($"  [grey]{Markup.Escape(display)}[/]");
+                ctx.WritePaddedLine($"  [grey]{Markup.Escape(line)}[/]");
                 linesRendered++;
             }
         }
@@ -202,6 +202,7 @@ public class MessageDetailView : ITuiView
     private int RenderStderrDetail(SessionMessage msg, RenderContext ctx)
     {
         int linesRendered = 0;
+        var contentWidth = Math.Max(1, ctx.TermWidth - 2);
 
         var time = msg.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
 
@@ -212,7 +213,7 @@ public class MessageDetailView : ITuiView
         ctx.WritePaddedLine($"  [bold]Time:[/] {time}  [bold]Lines:[/] {msg.StderrLines.Count}");
         linesRendered++;
 
-        var allLines = msg.StderrLines;
+        var allLines = GetWrappedLines(msg.StderrLines, contentWidth);
         var stderrAvailable = Math.Max(3, ctx.AvailableLines - linesRendered - 1);
         var maxOffset = Math.Max(0, allLines.Count - stderrAvailable);
         _jsonScrollOffset = Math.Clamp(_jsonScrollOffset, 0, maxOffset);
@@ -227,12 +228,22 @@ public class MessageDetailView : ITuiView
         var visibleLines = allLines.Skip(_jsonScrollOffset).Take(stderrAvailable);
         foreach (var line in visibleLines)
         {
-            var display = RenderContext.TruncateLine(line, ctx.TermWidth - 2);
-            ctx.WritePaddedLine($"  [red]{Markup.Escape(display)}[/]");
+            ctx.WritePaddedLine($"  [red]{Markup.Escape(line)}[/]");
             linesRendered++;
         }
 
         return linesRendered;
+    }
+
+    private static IReadOnlyList<string> GetWrappedLines(IEnumerable<string> lines, int contentWidth)
+    {
+        var wrapped = new List<string>();
+        foreach (var line in lines)
+        {
+            wrapped.AddRange(RenderContext.WrapLine(line, contentWidth));
+        }
+
+        return wrapped;
     }
 
     // ── Actions ──
@@ -267,11 +278,25 @@ public class MessageDetailView : ITuiView
     private void ExportSession()
     {
         AnsiConsole.Clear();
+
+        var exportType = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold]Export type:[/]")
+                .AddChoices("Full session log (all messages)", "Script export (sent only)"));
+
+        var defaultFile = exportType.StartsWith("Full")
+            ? "session-log.json"
+            : "session-export.json";
+
         var path = AnsiConsole.Prompt(
             new TextPrompt<string>("[bold]Export path:[/]")
-                .DefaultValue("session-export.json"));
+                .DefaultValue(defaultFile));
 
-        _store.ExportSession(path);
+        if (exportType.StartsWith("Full"))
+            _store.ExportFullSessionLog(path);
+        else
+            _store.ExportSession(path);
+
         AnsiConsole.MarkupLine($"[green]✓ Exported to {Markup.Escape(path)}[/]");
         Thread.Sleep(1000);
     }

@@ -16,6 +16,7 @@ public class TuiStore
 {
     private readonly LspSession _session;
     private readonly CancellationTokenSource _cts = new();
+    private int _lastObservedMessageCount;
 
     public LspMetaModelProvider MetaModel { get; }
 
@@ -99,11 +100,19 @@ public class TuiStore
     }
 
     /// <summary>
-    /// Exports the session log to a JSON file.
+    /// Exports sent messages as a replayable JSON script.
     /// </summary>
     public void ExportSession(string path)
     {
         ScriptExporter.Export(_session.Log, path);
+    }
+
+    /// <summary>
+    /// Exports the full session log (all messages) as a JSON file.
+    /// </summary>
+    public void ExportFullSessionLog(string path)
+    {
+        SessionLogExporter.Export(_session.Log, path);
     }
 
     /// <summary>
@@ -157,5 +166,31 @@ public class TuiStore
         var count = MessageCount;
         if (SelectedIndex < 0 || SelectedIndex >= count)
             SelectedIndex = count - 1;
+
+        _lastObservedMessageCount = count;
+    }
+
+    /// <summary>
+    /// Keeps the list selection pinned to the newest message only when the
+    /// user was already sitting on the previous tail.
+    /// </summary>
+    public void FollowLatestMessageIfPinned()
+    {
+        var count = MessageCount;
+
+        if (count == 0)
+        {
+            SelectedIndex = -1;
+            _lastObservedMessageCount = 0;
+            return;
+        }
+
+        var previousLastIndex = _lastObservedMessageCount - 1;
+        var wasPinnedToLatest = SelectedIndex < 0 || SelectedIndex == previousLastIndex;
+
+        if (SelectedIndex >= count || wasPinnedToLatest)
+            SelectedIndex = count - 1;
+
+        _lastObservedMessageCount = count;
     }
 }

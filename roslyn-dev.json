@@ -1,0 +1,12 @@
+{
+  "name": "roslyn-dev",
+  "command": "dotnet",
+  "arguments": [
+    "/home/dabarbet/source/repos/roslyn/artifacts/bin/Microsoft.CodeAnalysis.LanguageServer/Debug/net10.0/Microsoft.CodeAnalysis.LanguageServer.dll",
+    "--stdio",
+    "--autoLoadProjects"
+  ],
+  "environment": {
+    "DOTNET_ROLL_FORWARD": "LatestMajor"
+  }
+}

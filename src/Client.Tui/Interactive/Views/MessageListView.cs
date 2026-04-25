@@ -21,11 +21,12 @@ public class MessageListView : ITuiView
     public void OnEnter(object? args)
     {
         // Ensure selection is valid when returning to this view
-        _store.ClampSelectedIndex();
+        _store.FollowLatestMessageIfPinned();
     }
 
     public void Render(RenderContext ctx)
     {
+        _store.FollowLatestMessageIfPinned();
         var messages = _store.GetMessages();
         int linesRendered = RenderCollapsedLog(messages, ctx);
         ctx.ClearRemainingLines(linesRendered);
@@ -166,11 +167,25 @@ public class MessageListView : ITuiView
     private void ExportSession()
     {
         AnsiConsole.Clear();
+
+        var exportType = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold]Export type:[/]")
+                .AddChoices("Full session log (all messages)", "Script export (sent only)"));
+
+        var defaultFile = exportType.StartsWith("Full")
+            ? "session-log.json"
+            : "session-export.json";
+
         var path = AnsiConsole.Prompt(
             new TextPrompt<string>("[bold]Export path:[/]")
-                .DefaultValue("session-export.json"));
+                .DefaultValue(defaultFile));
 
-        _store.ExportSession(path);
+        if (exportType.StartsWith("Full"))
+            _store.ExportFullSessionLog(path);
+        else
+            _store.ExportSession(path);
+
         AnsiConsole.MarkupLine($"[green]✓ Exported to {Markup.Escape(path)}[/]");
         Thread.Sleep(1000);
     }

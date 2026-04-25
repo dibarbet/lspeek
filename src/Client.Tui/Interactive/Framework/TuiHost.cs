@@ -98,14 +98,22 @@ public class TuiHost
     {
         if (_viewStack.Count == 0) return;
 
-        // Poll for input so the screen refreshes periodically.
-        // Use a shorter interval when progress items are active for smoother updates.
+        // Poll for input frequently so keypress latency stays low, while only
+        // re-rendering on the slower cadence needed for background updates.
+        var renderInterval = _store.HasActiveProgress ? 100 : 250;
+        var nextRenderAt = Environment.TickCount64 + renderInterval;
         while (!Console.KeyAvailable)
         {
             if (_store.CancellationToken.IsCancellationRequested) return;
-            var delay = _store.HasActiveProgress ? 200 : 500;
-            await Task.Delay(delay);
-            Render();
+
+            await Task.Delay(25);
+
+            if (Environment.TickCount64 >= nextRenderAt)
+            {
+                Render();
+                renderInterval = _store.HasActiveProgress ? 100 : 250;
+                nextRenderAt = Environment.TickCount64 + renderInterval;
+            }
         }
 
         // Drain all buffered keys before the next render so that holding
