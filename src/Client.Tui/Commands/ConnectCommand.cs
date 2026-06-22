@@ -1,6 +1,6 @@
 using ManualLspClient.Core.Configuration;
 using ManualLspClient.Core.MetaModel;
-using ManualLspClient.Core.Session;
+using ManualLspClient.Protocol;
 using ManualLspClient.Tui.Interactive.Framework;
 using ManualLspClient.Tui.Interactive.Views;
 using ManualLspClient.Tui.Scripting;
@@ -57,15 +57,29 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
             $"Command: {serverConfig.Command} {string.Join(" ", serverConfig.Arguments)}",
             $"[dim]Command:[/] {Markup.Escape(serverConfig.Command)} {Markup.Escape(string.Join(" ", serverConfig.Arguments))}");
 
-        // Start the LSP session
-        LspSession session;
+        // Spawn the private backend that owns the LSP server.
+        await using var client = new BackendClient(new BackendClientOptions
+        {
+            OnStderr = isScriptMode ? (line => Console.Error.WriteLine(line)) : null,
+        });
         try
         {
-            session = LspSession.Start(serverConfig);
+            await client.StartAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            WriteError(isScriptMode, $"Failed to start backend: {ex.Message}");
+            return 1;
+        }
+
+        // Start the LSP server inside the backend.
+        try
+        {
+            var startResponse = await client.StartServerAsync(new StartServerRequest { Server = settings.Server }, cancellationToken);
             WriteStatus(
                 isScriptMode,
-                $"Server started (PID: {session.ServerProcessId})",
-                $"[green]Server started[/] (PID: {session.ServerProcessId})");
+                $"Server started (PID: {startResponse.Pid})",
+                $"[green]Server started[/] (PID: {startResponse.Pid})");
         }
         catch (Exception ex)
         {
@@ -73,56 +87,65 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
             return 1;
         }
 
-        await using (session)
+        var hasScript = settings.JsonPath is not null;
+
+        // Run JSON script if provided
+        if (settings.JsonPath is not null)
         {
-            var hasScript = settings.JsonPath is not null;
-
-            // Run JSON script if provided
-            if (settings.JsonPath is not null)
+            var script = ScriptFile.Load(settings.JsonPath);
+            var runner = new ScriptRunner(client);
+            try
             {
-                var script = ScriptFile.Load(settings.JsonPath);
-                var runner = new ScriptRunner(session);
-                try
-                {
-                    await runner.RunAsync(script, settings.JsonPath, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    WriteError(true, $"Script error: {ex.Message}");
-                    if (settings.Exit) return 1;
-                }
-
-                if (settings.Exit)
-                {
-                    if (!script.EndsWithShutdownAndExit())
-                    {
-                        if (script.EndsWithShutdownRequest())
-                        {
-                            await session.SendNotificationAsync("exit", null, cancellationToken);
-                        }
-                        else if (!script.EndsWithExitNotification())
-                        {
-                            await session.ShutdownAsync(cancellationToken);
-                        }
-                    }
-
-                    return 0;
-                }
+                await runner.RunAsync(script, settings.JsonPath, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                WriteError(true, $"Script error: {ex.Message}");
+                if (settings.Exit) return 1;
             }
 
-            // Enter interactive TUI
-            var metaModel = LspMetaModelProvider.Load();
-            var store = new TuiStore(session, metaModel)
+            if (settings.Exit)
             {
-                AutoInit = !hasScript && !settings.NoInit && !session.IsInitialized
-            };
-            var host = new TuiHost(store)
-                .RegisterView(() => new MessageListView(store))
-                .RegisterView(() => new MessageDetailView(store))
-                .RegisterView(() => new MethodPickerView(store))
-                .RegisterView(() => new ParamsEditorView(store));
-            await host.RunAsync<MessageListView>();
+                if (!script.EndsWithShutdownAndExit())
+                {
+                    if (script.EndsWithShutdownRequest())
+                    {
+                        await client.NotifyAsync("exit", null, cancellationToken);
+                    }
+                    else if (!script.EndsWithExitNotification())
+                    {
+                        await client.StopServerAsync(cancellationToken);
+                    }
+                }
+
+                return 0;
+            }
         }
+
+        // Enter interactive TUI
+        var metaModel = LspMetaModelProvider.Load();
+        ServerStatus? initialStatus = null;
+        try
+        {
+            initialStatus = await client.GetStatusAsync(cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Status is best-effort; the SSE backfill will populate it.
+        }
+
+        var store = new TuiStore(client, metaModel, serverConfig.Name, initialStatus)
+        {
+            AutoInit = !hasScript && !settings.NoInit,
+        };
+        await store.StartAsync();
+
+        var host = new TuiHost(store)
+            .RegisterView(() => new MessageListView(store))
+            .RegisterView(() => new MessageDetailView(store))
+            .RegisterView(() => new MethodPickerView(store))
+            .RegisterView(() => new ParamsEditorView(store));
+        await host.RunAsync<MessageListView>();
 
         return 0;
     }

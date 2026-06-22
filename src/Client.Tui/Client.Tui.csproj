@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Client.Core\Client.Core.csproj" />
+    <ProjectReference Include="..\Client.Protocol\Client.Protocol.csproj" />
   </ItemGroup>
 
   <ItemGroup>

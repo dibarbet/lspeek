@@ -1,7 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Client.Core/Client.Core.csproj" />
+    <Project Path="src/Client.Protocol/Client.Protocol.csproj" />
+    <Project Path="src/Client.Backend/Client.Backend.csproj" />
     <Project Path="src/Client.Tui/Client.Tui.csproj" />
+    <Project Path="src/Client.Mcp/Client.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tests.Integration/Tests.Integration.csproj" />
