@@ -1,0 +1,74 @@
+<Project>
+
+  <!--
+    Bundles the lspeek-backend next to a frontend so an installed tool can spawn it off-repo.
+    A plain ProjectReference copies lspeek-backend.dll but not its runtimeconfig.json/deps.json,
+    which `dotnet exec` requires, so we bundle the backend's full output under a "backend/" folder:
+      * _CopyBackendToOutput  - copies the backend build output into $(OutDir)backend/ (local run/smoke).
+      * _AddBackendToPackage  - injects the backend's framework-dependent publish output into the
+                                tool package under tools/<tfm>/any/backend/ (installed tools).
+    BackendLauncher probes baseDir/backend, so the spawned backend is found via `dotnet exec`.
+
+    The ProjectReference exists only to order the build (the backend must build before we copy
+    it); ReferenceOutputAssembly/Private/ExcludeAssets/PrivateAssets keep the backend's assembly,
+    apphost, and transitive (ASP.NET Core) assets out of the frontend's own output (otherwise a
+    partial, broken backend leaks next to the frontend and the baseDir probe would pick it).
+    Using a single graph reference - rather than an <MSBuild> Build call with distinct global
+    properties - avoids compiling the backend twice concurrently into the same obj.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Client.Backend\Client.Backend.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false"
+                      ExcludeAssets="all"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <BackendProject>$(MSBuildThisFileDirectory)Client.Backend\Client.Backend.csproj</BackendProject>
+    <BackendBuildOutputDir>$(MSBuildThisFileDirectory)Client.Backend\bin\$(Configuration)\$(TargetFramework)\</BackendBuildOutputDir>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddBackendToPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!--
+    Resolve the publish staging dir at execution time. This file is imported before the SDK's
+    implicit Sdk.targets, so $(IntermediateOutputPath) is still empty during evaluation; computing
+    it in a target (when the SDK has finalized obj\<cfg>\<tfm>\) keeps the staging dir under obj/
+    (gitignored) instead of leaking a "backendbundle" folder into the project root.
+  -->
+  <Target Name="_InitBackendBundleDir">
+    <PropertyGroup>
+      <BackendBundleDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'backendbundle'))</BackendBundleDir>
+    </PropertyGroup>
+  </Target>
+
+  <!-- Copy the backend's build output beside the frontend so build-output usage finds it. -->
+  <Target Name="_CopyBackendToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <_BackendOutputFile Include="$(BackendBuildOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BackendOutputFile)"
+          DestinationFiles="@(_BackendOutputFile->'$(OutDir)backend\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_BackendOutputFile)' != ''" />
+  </Target>
+
+  <!-- Produce a clean, framework-dependent publish of the backend for packaging. -->
+  <Target Name="_PublishBackendForBundle" DependsOnTargets="_InitBackendBundleDir">
+    <RemoveDir Directories="$(BackendBundleDir)" />
+    <MSBuild Projects="$(BackendProject)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);SelfContained=false;RuntimeIdentifier=;PublishDir=$(BackendBundleDir)" />
+  </Target>
+
+  <!-- Inject the published backend into the tool package under tools/<tfm>/any/backend/. -->
+  <Target Name="_AddBackendToPackage" DependsOnTargets="_PublishBackendForBundle">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(BackendBundleDir)**\*">
+        <PackagePath>tools/$(TargetFramework)/any/backend/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+</Project>

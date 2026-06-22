@@ -27,9 +27,9 @@
     <PackageId>lspeek</PackageId>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
+
+  <!-- Bundle lspeek-backend so the installed tool can spawn it off-repo. -->
+  <Import Project="..\Bundle.Backend.targets" />
 
 </Project>

@@ -8,7 +8,8 @@
 //
 // Discovery mirrors src/Client.Protocol/BackendLauncher.cs:
 //   1. LSPEEK_BACKEND env var (a file, or a directory containing the host)
-//   2. in-repo dev build (src/Client.Backend/bin/<config>/<tfm>/lspeek-backend[.exe|.dll])
+//   2. a bundled backend next to this extension (the extension dir, then a "backend" subfolder)
+//   3. in-repo dev build (src/Client.Backend/bin/<config>/<tfm>/lspeek-backend[.exe|.dll])
 
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
@@ -40,6 +41,11 @@ function resolveLaunch() {
         if (existsSync(value)) return asLaunch(value);
         throw new Error(`Configured ${ENV_VAR} '${value}' was not found.`);
     }
+
+    // A packaged extension ships the backend beside it (the extension dir, or a "backend" subfolder).
+    const bundled = hostInDirectory(extensionDir)
+        ?? hostInDirectory(path.join(extensionDir, "backend"));
+    if (bundled) return bundled;
 
     const repoRoot = findRepoRoot(extensionDir);
     if (repoRoot) {

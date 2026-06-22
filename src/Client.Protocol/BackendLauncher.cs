@@ -5,13 +5,15 @@ namespace ManualLspClient.Protocol;
 /// <summary>
 /// Locates the <c>lspeek-backend</c> executable so a frontend can spawn its own private
 /// backend instance. Resolution order: an explicit path, then the <c>LSPEEK_BACKEND</c>
-/// environment variable, then the frontend's own output directory, then the in-repo dev
-/// build output (<c>src/Client.Backend/bin/&lt;config&gt;/&lt;tfm&gt;</c>).
+/// environment variable, then the frontend's own output directory, then a bundled
+/// <c>backend/</c> subdirectory next to the frontend (how packaged tools ship it), then the
+/// in-repo dev build output (<c>src/Client.Backend/bin/&lt;config&gt;/&lt;tfm&gt;</c>).
 /// </summary>
 /// <remarks>
-/// The dev-build probe is a convenience for working in this repo; production packaging
-/// (bundled binaries or a dotnet tool) is expected to drop the backend next to the
-/// frontend or set <c>LSPEEK_BACKEND</c>, both of which are found before the probe.
+/// The dev-build probe is a convenience for working in this repo. Packaged tools bundle the
+/// backend's framework-dependent publish output under a <c>backend/</c> folder beside the
+/// frontend (see <c>src/Bundle.Backend.targets</c>); both that and <c>LSPEEK_BACKEND</c> are
+/// found before the dev-build probe.
 /// </remarks>
 public static class BackendLauncher
 {
@@ -20,6 +22,9 @@ public static class BackendLauncher
 
     /// <summary>Environment variable that overrides backend discovery (file or directory).</summary>
     public const string EnvironmentVariable = "LSPEEK_BACKEND";
+
+    /// <summary>Subdirectory (next to the frontend) where packaged tools bundle the backend.</summary>
+    public const string BundledSubdirectory = "backend";
 
     /// <summary>
     /// Resolves how to launch the backend: a file name plus any prefix arguments. A native
@@ -43,6 +48,10 @@ public static class BackendLauncher
         var baseDir = AppContext.BaseDirectory;
         if (TryDirectory(baseDir) is { } fromBase)
             return fromBase;
+
+        // Packaged tools drop the backend's publish output in a "backend" folder beside the frontend.
+        if (TryDirectory(Path.Combine(baseDir, BundledSubdirectory)) is { } fromBundle)
+            return fromBundle;
 
         foreach (var dir in DevBuildDirectories(baseDir))
         {

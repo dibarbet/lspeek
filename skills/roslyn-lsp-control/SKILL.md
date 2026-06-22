@@ -30,10 +30,13 @@ result envelopes are the same.
 
 ## Prerequisites
 
-- **A built backend.** The frontends locate and spawn `lspeek-backend`; build it once with
-  `dotnet build lspeek.slnx` (produces `src/Client.Backend/bin/<Config>/<tfm>/lspeek-backend(.exe)`,
-  which the canvas/MCP auto-discover). You can also point them at a specific host with the
-  `LSPEEK_BACKEND` environment variable (a host file or a directory containing it).
+- **A backend the frontend can spawn.** The frontends locate and spawn `lspeek-backend`. Installed
+  tools (`dotnet tool install --global lspeek` / `lspeek-mcp`) **bundle** the backend, so nothing
+  extra is needed. When working from the repo, build it once with `dotnet build lspeek.slnx`
+  (produces `src/Client.Backend/bin/<Config>/<tfm>/lspeek-backend(.exe)`, which the canvas/MCP
+  auto-discover). You can also point them at a specific host with the `LSPEEK_BACKEND` environment
+  variable (a host file or a directory containing it). The bundled backend is framework-dependent and
+  needs the ASP.NET Core shared runtime (ships with the .NET SDK).
 - **The frontend you intend to use is available:**
   - Canvas: confirm with `list_canvas_capabilities(canvasId:"roslyn-lsp-tester")`. It lives in this
     repo under `.github/extensions/roslyn-lsp-tester`, so it is auto-discovered when working in the

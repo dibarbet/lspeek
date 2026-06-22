@@ -59,6 +59,23 @@ See [`skills/roslyn-lsp-control/SKILL.md`](skills/roslyn-lsp-control/SKILL.md) f
 message-composition guide (initialize handshake, loading projects, reading diagnostics/progress,
 gotchas).
 
+## Installing
+
+Both .NET frontends ship as [.NET global tools](https://learn.microsoft.com/dotnet/core/tools/global-tools)
+with the backend **bundled inside the package** (under `tools/<tfm>/any/backend/`), so an installed
+tool finds and spawns its backend with no extra setup:
+
+```bash
+dotnet tool install --global lspeek        # the TUI
+dotnet tool install --global lspeek-mcp    # the MCP server
+```
+
+The bundled backend is a framework-dependent build, so it needs the **ASP.NET Core shared runtime**
+at spawn time (this ships with the .NET SDK; install the
+[ASP.NET Core Runtime](https://dotnet.microsoft.com/download) if you only have the base .NET runtime).
+
+To run without installing, use `dnx lspeek …` (the TUI) or point your agent at the packed `lspeek-mcp`.
+
 ## Building
 
 ```bash
@@ -66,15 +83,21 @@ dotnet build lspeek.slnx
 ```
 
 This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP, and canvas
-**discover and spawn** the backend automatically:
+**discover and spawn** the backend automatically, in order:
 
-1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), or
-2. the in-repo dev build under `src/Client.Backend/bin/<Config>/<tfm>/` (newest wins).
+1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), then
+2. the frontend's own output directory (`AppContext.BaseDirectory`), then
+3. a bundled `backend/` subdirectory beside the frontend (how packaged tools ship it), then
+4. the in-repo dev build under `src/Client.Backend/bin/<Config>/<tfm>/` (newest wins).
+
+Set `LSPEEK_BACKEND` to override discovery — e.g. point every frontend at one freshly built backend
+while iterating on it.
 
 ## TUI (`lspeek`)
 
 ```
-dnx lspeek <server> [--no-init] [--json <PATH>] [--exit]
+lspeek <server> [--no-init] [--json <PATH>] [--exit]      # installed global tool
+dnx lspeek <server> [...]                                 # or run without installing
 ```
 
 | Argument / Option | Description |
@@ -87,11 +110,11 @@ dnx lspeek <server> [--no-init] [--json <PATH>] [--exit]
 ### Examples
 
 ```bash
-dnx lspeek roslyn                          # launch and connect to Roslyn
-dnx lspeek roslyn --no-init                # skip handshake
-dnx lspeek roslyn --json replay.json       # run a script then enter TUI
-dnx lspeek roslyn --json replay.json --exit # run a script and exit
-dnx lspeek ./my-server.json                # use a custom server config
+lspeek roslyn                          # launch and connect to Roslyn
+lspeek roslyn --no-init                # skip handshake
+lspeek roslyn --json replay.json       # run a script then enter TUI
+lspeek roslyn --json replay.json --exit # run a script and exit
+lspeek ./my-server.json                # use a custom server config
 ```
 
 Use `X` in the TUI to export a session as a replayable script.
@@ -99,8 +122,9 @@ Use `X` in the TUI to export a session as a replayable script.
 ## MCP server (`lspeek-mcp`)
 
 A stdio MCP server that exposes the action surface as tools, each driving this process's own private
-backend. Register it with your agent's MCP configuration, pointing at the built `lspeek-mcp` host (or
-`dotnet run --project src/Client.Mcp`). stdout is reserved for the MCP protocol; logs go to stderr.
+backend. Register it with your agent's MCP configuration, pointing at the installed `lspeek-mcp`
+command (after `dotnet tool install --global lspeek-mcp`) or at `dotnet run --project src/Client.Mcp`.
+stdout is reserved for the MCP protocol; logs go to stderr.
 
 Each tool returns a JSON envelope: `{ ok:true, ... }` on success or `{ ok:false, error }` on failure.
 
