@@ -61,20 +61,20 @@ gotchas).
 
 ## Installing
 
-Both .NET frontends ship as [.NET global tools](https://learn.microsoft.com/dotnet/core/tools/global-tools)
-with the backend **bundled inside the package** (under `tools/<tfm>/any/backend/`), so an installed
-tool finds and spawns its backend with no extra setup:
+Both .NET frontends ship as [.NET tools](https://learn.microsoft.com/dotnet/core/tools/global-tools)
+that are **self-contained and platform-specific** (win-x64 and linux-x64), with the backend's
+**native-AOT executable bundled inside the package** (under `tools/any/<rid>/backend/`). An installed
+tool carries its own runtime and spawns its bundled native backend — no .NET runtime and no extra
+setup required:
 
 ```bash
 dotnet tool install --global lspeek        # the TUI
 dotnet tool install --global lspeek-mcp    # the MCP server
 ```
 
-The bundled backend is a framework-dependent build, so it needs the **ASP.NET Core shared runtime**
-at spawn time (this ships with the .NET SDK; install the
-[ASP.NET Core Runtime](https://dotnet.microsoft.com/download) if you only have the base .NET runtime).
-
-To run without installing, use `dnx lspeek …` (the TUI) or point your agent at the packed `lspeek-mcp`.
+`dotnet tool install` reads each tool's RID manifest and fetches the payload matching your machine
+(**win-x64** or **linux-x64** — the supported platforms). To run without installing, use
+`dnx lspeek …` (the TUI) or point your agent at the packed `lspeek-mcp`.
 
 ## Building
 
@@ -86,9 +86,11 @@ This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP
 **discover and spawn** the backend automatically. The .NET frontends (TUI, MCP) look, in order, for:
 
 1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), then
-2. the frontend's own output directory (`AppContext.BaseDirectory`), then
-3. a bundled `backend/` subdirectory beside the frontend (how packaged tools ship it), then
-4. the in-repo dev build under `src/Client.Backend/bin/<Config>/<tfm>/` (newest wins).
+2. a bundled `backend/` subdirectory beside the frontend (`AppContext.BaseDirectory/backend/`).
+
+Packaged tools ship the backend's **native-AOT executable** in that `backend/` folder (run directly);
+a local `dotnet build` copies the backend's **managed** build output there instead (run via
+`dotnet exec`). Either way the same `backend/` probe finds it.
 
 The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
 dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
