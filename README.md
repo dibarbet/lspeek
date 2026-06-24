@@ -83,12 +83,17 @@ dotnet build lspeek.slnx
 ```
 
 This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP, and canvas
-**discover and spawn** the backend automatically, in order:
+**discover and spawn** the backend automatically. The .NET frontends (TUI, MCP) look, in order, for:
 
 1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), then
 2. the frontend's own output directory (`AppContext.BaseDirectory`), then
 3. a bundled `backend/` subdirectory beside the frontend (how packaged tools ship it), then
 4. the in-repo dev build under `src/Client.Backend/bin/<Config>/<tfm>/` (newest wins).
+
+The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
+dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
+NuGet (cached after first run) so it works off-repo with only the .NET SDK installed. See
+[the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
 
 Set `LSPEEK_BACKEND` to override discovery — e.g. point every frontend at one freshly built backend
 while iterating on it.
@@ -136,6 +141,23 @@ repo under [`.github/extensions/roslyn-lsp-tester`](.github/extensions/roslyn-ls
 Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
 `list_canvas_capabilities(canvasId:"roslyn-lsp-tester")`, then `open_canvas` and drive it with
 `invoke_canvas_action({ instanceId, actionName, input })`.
+
+### Running off-repo (no local build)
+
+The canvas is two small JS files — it can't bundle the .NET backend the way the packaged tools do.
+Instead, when it can't find a local backend (no `LSPEEK_BACKEND`, no in-repo build) it runs
+**`dotnet dnx lspeek-backend`**, which downloads the published backend tool from NuGet on first use,
+caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides
+`dnx` and the ASP.NET Core runtime). This is why the backend is published as its own
+[`lspeek-backend`](https://www.nuget.org/packages/lspeek-backend) tool alongside `lspeek` / `lspeek-mcp`.
+
+Optional environment overrides (read by the canvas):
+
+| Variable | Effect |
+|---|---|
+| `LSPEEK_BACKEND` | Use a specific backend host file or directory instead of dnx (e.g. a local build). |
+| `LSPEEK_BACKEND_VERSION` | Pin the dnx tool to an exact version (e.g. `1.0.42`) instead of the latest stable. |
+| `LSPEEK_BACKEND_PRERELEASE` | Set to `1`/`true` to let dnx float to the latest **prerelease** version. |
 
 ## Built-in Servers
 

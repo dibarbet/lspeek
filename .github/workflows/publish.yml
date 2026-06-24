@@ -40,6 +40,9 @@ jobs:
       - name: Pack lspeek-mcp tool
         run: dotnet pack src/Client.Mcp/Client.Mcp.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
 
+      - name: Pack lspeek-backend tool
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:

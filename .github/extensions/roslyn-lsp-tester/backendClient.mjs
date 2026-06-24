@@ -6,10 +6,17 @@
 // serves the web UI, and exposes an HTTP + SSE API. This module just spawns that backend as
 // a private child process and proxies HTTP requests to it.
 //
-// Discovery mirrors src/Client.Protocol/BackendLauncher.cs:
+// Discovery: steps 1-3 mirror src/Client.Protocol/BackendLauncher.cs; step 4 is canvas-specific.
 //   1. LSPEEK_BACKEND env var (a file, or a directory containing the host)
 //   2. a bundled backend next to this extension (the extension dir, then a "backend" subfolder)
 //   3. in-repo dev build (src/Client.Backend/bin/<config>/<tfm>/lspeek-backend[.exe|.dll])
+//   4. `dotnet dnx lspeek-backend` — acquire the published tool from NuGet (no local build needed)
+//
+// Step 4 is what lets the canvas run off-repo. The .NET tools (lspeek, lspeek-mcp) bundle the
+// backend beside them, so BackendLauncher.cs has no dnx step; this JS extension can't bundle a
+// .NET app, so it falls back to dnx, which needs the .NET SDK on PATH but no prior build/install
+// (dnx downloads + caches the lspeek-backend tool on first use, then launches it).
+// Pin a version with LSPEEK_BACKEND_VERSION; opt into prereleases with LSPEEK_BACKEND_PRERELEASE.
 
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
@@ -22,13 +29,21 @@ const ENV_VAR = "LSPEEK_BACKEND";
 const HANDSHAKE_PREFIX = "LSPEEK_BACKEND_URL=";
 const HANDSHAKE_TIMEOUT_MS = 30000;
 
+// `dotnet dnx` fallback (step 4): NuGet package id + env overrides + a longer handshake budget,
+// since a cold first-run download from NuGet can take much longer than a local launch.
+const DNX_PACKAGE_ID = "lspeek-backend";
+const DNX_VERSION_ENV = "LSPEEK_BACKEND_VERSION";
+const DNX_PRERELEASE_ENV = "LSPEEK_BACKEND_PRERELEASE";
+const DNX_HANDSHAKE_TIMEOUT_MS = 120000;
+
 const isWindows = process.platform === "win32";
 const hostFileName = isWindows ? `${EXECUTABLE_NAME}.exe` : EXECUTABLE_NAME;
 const extensionDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Resolve how to launch the backend: { command, args } where command is a native apphost
- * (args === prefix) or "dotnet" with ["exec", <dll>].
+ * Resolve how to launch the backend: { command, args, timeoutMs? } where command is a native
+ * apphost (args === []), "dotnet" with ["exec", <dll>], or "dotnet" with ["dnx", ...] to fetch
+ * and run the published tool. timeoutMs overrides the handshake budget for the slow dnx path.
  */
 function resolveLaunch() {
     const configured = process.env[ENV_VAR];
@@ -53,9 +68,29 @@ function resolveLaunch() {
         if (fromDev) return fromDev;
     }
 
-    throw new Error(
-        `Could not locate the lspeek backend ('${EXECUTABLE_NAME}'). Build src/Client.Backend, ` +
-        `or set the ${ENV_VAR} environment variable to the backend executable or its directory.`);
+    // Last resort: fetch + run the published tool from NuGet via `dotnet dnx`. This needs the
+    // .NET SDK on PATH but no local build or prior install; dnx caches the tool after first run.
+    return dnxLaunch();
+}
+
+/**
+ * Launch the backend via `dotnet dnx`, which downloads the published tool from NuGet (cached
+ * after the first run) and runs it. LSPEEK_BACKEND_VERSION pins an exact version;
+ * LSPEEK_BACKEND_PRERELEASE (1/true/yes/on) allows floating to the latest prerelease.
+ */
+function dnxLaunch() {
+    const version = (process.env[DNX_VERSION_ENV] ?? "").trim();
+    const args = ["dnx", "--yes"];
+    // --prerelease and an explicit @version are mutually exclusive in dnx.
+    if (!version && isTruthy(process.env[DNX_PRERELEASE_ENV])) args.push("--prerelease");
+    args.push(version ? `${DNX_PACKAGE_ID}@${version}` : DNX_PACKAGE_ID);
+    return { command: "dotnet", args, timeoutMs: DNX_HANDSHAKE_TIMEOUT_MS };
+}
+
+function isTruthy(value) {
+    if (!value) return false;
+    const s = String(value).trim().toLowerCase();
+    return s === "1" || s === "true" || s === "yes" || s === "on";
 }
 
 function isDirectory(p) {
@@ -171,13 +206,14 @@ export class BackendProcess {
             });
             this.child = child;
 
+            const timeoutMs = launch.timeoutMs ?? HANDSHAKE_TIMEOUT_MS;
             let settled = false;
             const timer = setTimeout(() => {
                 if (settled) return;
                 settled = true;
                 this.kill();
-                reject(new Error(`Backend did not report its URL within ${HANDSHAKE_TIMEOUT_MS}ms.`));
-            }, HANDSHAKE_TIMEOUT_MS);
+                reject(new Error(`Backend did not report its URL within ${timeoutMs}ms.`));
+            }, timeoutMs);
 
             let stdoutBuffer = "";
             child.stdout.setEncoding("utf8");

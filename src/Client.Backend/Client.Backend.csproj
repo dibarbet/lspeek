@@ -7,6 +7,18 @@
     <RootNamespace>ManualLspClient.Backend</RootNamespace>
     <OutputType>Exe</OutputType>
     <AssemblyName>lspeek-backend</AssemblyName>
+    <!--
+      Pack the backend as a `dnx`-launchable .NET tool so frontends that can't bundle it
+      (the JS canvas extension) can acquire it from NuGet with `dotnet dnx lspeek-backend`
+      instead of relying on a local repo build. The web UI is an EmbeddedResource compiled
+      into lspeek-backend.dll, so the tool package is fully self-describing.
+    -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>lspeek-backend</ToolCommandName>
+    <PackageId>lspeek-backend</PackageId>
+    <IsPackable>true</IsPackable>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +27,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.9.50" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="WebUi\index.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="\" Link="LICENSE.txt" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
   </ItemGroup>
 
 </Project>
