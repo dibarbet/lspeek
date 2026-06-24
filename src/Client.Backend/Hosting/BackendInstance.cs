@@ -300,7 +300,7 @@ public sealed class BackendInstance : IAsyncDisposable
         if (string.IsNullOrEmpty(line))
             return;
         var summary = line.Length > 200 ? line[..200] + "…" : line;
-        Buffer.Add("recv", "stderr", null, null, summary, JsonSerializer.SerializeToElement(line));
+        Buffer.Add("recv", "stderr", null, null, summary, JsonSerializer.SerializeToElement(line, BackendJsonContext.Default.String));
     }
 
     private void OnProcessExited()
@@ -352,7 +352,7 @@ public sealed class BackendInstance : IAsyncDisposable
             ? v.Clone()
             : null;
 
-    private static JsonElement ToElement(JsonNode node) => JsonSerializer.SerializeToElement(node);
+    private static JsonElement ToElement(JsonNode node) => JsonDocument.Parse(node.ToJsonString()).RootElement.Clone();
 
     public async ValueTask DisposeAsync()
     {

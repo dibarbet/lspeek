@@ -218,3 +218,13 @@ public sealed class HelpResponse
 {
     public string Help { get; set; } = "";
 }
+
+/// <summary>
+/// Generic success envelope (<c>{ ok: true }</c>), optionally carrying the method
+/// that was sent (used by <c>lsp_notify</c> → <c>{ ok: true, sent: "..." }</c>).
+/// </summary>
+public sealed class OkResponse
+{
+    public bool Ok { get; set; } = true;
+    public string? Sent { get; set; }
+}

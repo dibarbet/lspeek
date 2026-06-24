@@ -358,7 +358,7 @@ public sealed class RawLspConnection : IAsyncDisposable
     private static string IdKey(JsonNode id) => id.ToJsonString();
 
     private static JsonElement? ToElement(JsonNode? node)
-        => node is null ? null : JsonSerializer.SerializeToElement(node);
+        => node is null ? null : JsonDocument.Parse(node.ToJsonString()).RootElement.Clone();
 
     private void EnsureCapacity(int needed)
     {

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading.Channels;
 using ManualLspClient.Backend.Hosting;
 using ManualLspClient.Protocol;
@@ -44,12 +45,14 @@ const string HelpText =
     File paths MUST be file:// URIs. Notifications get no response; requests do (lsp_request waits).
     """;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateSlimBuilder(args);
 builder.Logging.ClearProviders();
 builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 builder.Services.AddSingleton<InstanceManager>();
 builder.Services.Configure<JsonOptions>(o =>
 {
+    // Source-generated metadata first → Native-AOT safe request binding + responses.
+    o.SerializerOptions.TypeInfoResolverChain.Insert(0, BackendJsonContext.Default);
     o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     o.SerializerOptions.PropertyNameCaseInsensitive = true;
@@ -61,7 +64,7 @@ var indexHtml = LoadIndexHtml();
 
 // ── helpers ────────────────────────────────────────────────────────────────
 static BackendInstance Inst(HttpContext http, InstanceManager mgr) => mgr.Get(http.Request.Query["instance"]);
-static IResult Fail(Exception ex) => Results.Json(new ErrorResponse { Error = ex.Message }, statusCode: 400);
+static IResult Fail(Exception ex) => Results.Json(new ErrorResponse { Error = ex.Message }, BackendJsonContext.Default.ErrorResponse, statusCode: 400);
 
 // ── UI + state ───────────────────────────────────────────────────────────────
 app.MapGet("/", (HttpContext http) =>
@@ -81,67 +84,67 @@ app.MapGet("/api/state", (HttpContext http) =>
         InstanceId = instance.InstanceId,
         Status = instance.SnapshotStatus(),
         Messages = instance.GetMessages(new GetMessagesQuery { SinceSeq = 0, Limit = 1000 }).Messages,
-    });
+    }, BackendJsonContext.Default.InstanceState);
 });
 
-app.MapGet("/api/status", (HttpContext http) => Results.Json(Inst(http, manager).SnapshotStatus()));
+app.MapGet("/api/status", (HttpContext http) => Results.Json(Inst(http, manager).SnapshotStatus(), BackendJsonContext.Default.ServerStatus));
 
-app.MapGet("/api/help", () => Results.Json(new { help = HelpText }));
+app.MapGet("/api/help", () => Results.Json(new HelpResponse { Help = HelpText }, BackendJsonContext.Default.HelpResponse));
 
 // ── server lifecycle ─────────────────────────────────────────────────────────
 app.MapPost("/api/start", async (HttpContext http, StartServerRequest? body) =>
 {
-    try { return Results.Json(await Inst(http, manager).StartAsync(body ?? new StartServerRequest())); }
+    try { return Results.Json(await Inst(http, manager).StartAsync(body ?? new StartServerRequest()), BackendJsonContext.Default.StartServerResponse); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/stop", async (HttpContext http) =>
 {
-    try { await Inst(http, manager).StopAsync(); return Results.Json(new { ok = true }); }
+    try { await Inst(http, manager).StopAsync(); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 // ── LSP traffic ──────────────────────────────────────────────────────────────
 app.MapPost("/api/request", async (HttpContext http, LspRequestInput body) =>
 {
-    try { return Results.Json(await Inst(http, manager).RequestAsync(body)); }
+    try { return Results.Json(await Inst(http, manager).RequestAsync(body), BackendJsonContext.Default.LspRequestResult); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/notify", (HttpContext http, LspNotifyInput body) =>
 {
-    try { Inst(http, manager).Notify(body); return Results.Json(new { ok = true, sent = body.Method }); }
+    try { Inst(http, manager).Notify(body); return Results.Json(new OkResponse { Sent = body.Method }, BackendJsonContext.Default.OkResponse); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/send-raw", async (HttpContext http, SendRawInput body) =>
 {
-    try { return Results.Json(await Inst(http, manager).SendRawAsync(body)); }
+    try { return Results.Json(await Inst(http, manager).SendRawAsync(body), BackendJsonContext.Default.SendRawResult); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/respond", (HttpContext http, RespondInput body) =>
 {
-    try { Inst(http, manager).Respond(body); return Results.Json(new { ok = true }); }
+    try { Inst(http, manager).Respond(body); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 // ── message buffer ──────────────────────────────────────────────────────────
 app.MapGet("/api/messages", (HttpContext http) =>
 {
-    try { return Results.Json(Inst(http, manager).GetMessages(BuildMessagesQuery(http.Request))); }
+    try { return Results.Json(Inst(http, manager).GetMessages(BuildMessagesQuery(http.Request)), BackendJsonContext.Default.GetMessagesResult); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/wait", async (HttpContext http, WaitForMessageInput body) =>
 {
-    try { return Results.Json(await Inst(http, manager).WaitAsync(body)); }
+    try { return Results.Json(await Inst(http, manager).WaitAsync(body), BackendJsonContext.Default.WaitForMessageResult); }
     catch (Exception ex) { return Fail(ex); }
 });
 
 app.MapPost("/api/clear", (HttpContext http) =>
 {
-    try { Inst(http, manager).Clear(); return Results.Json(new { ok = true }); }
+    try { Inst(http, manager).Clear(); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
     catch (Exception ex) { return Fail(ex); }
 });
 
@@ -155,8 +158,8 @@ app.MapGet("/events", async (HttpContext http) =>
     res.Headers.Connection = "keep-alive";
 
     var channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
-    void OnMessage(LspMessageRecord m) => channel.Writer.TryWrite(SseEvent("message", m));
-    void OnStatus(ServerStatus s) => channel.Writer.TryWrite(SseEvent("status", s));
+    void OnMessage(LspMessageRecord m) => channel.Writer.TryWrite(SseEvent("message", m, BackendJsonContext.Default.LspMessageRecord));
+    void OnStatus(ServerStatus s) => channel.Writer.TryWrite(SseEvent("status", s, BackendJsonContext.Default.ServerStatus));
     void OnCleared() => channel.Writer.TryWrite("event: cleared\ndata: {}\n\n");
 
     instance.Buffer.RecordAdded += OnMessage;
@@ -167,7 +170,7 @@ app.MapGet("/events", async (HttpContext http) =>
     try
     {
         await res.WriteAsync("retry: 2000\n\n", ct);
-        await res.WriteAsync(SseEvent("status", instance.SnapshotStatus()), ct);
+        await res.WriteAsync(SseEvent("status", instance.SnapshotStatus(), BackendJsonContext.Default.ServerStatus), ct);
         await res.Body.FlushAsync(ct);
 
         _ = Task.Run(async () =>
@@ -219,8 +222,8 @@ await manager.DisposeAsync();
 return;
 
 // ── local functions ──────────────────────────────────────────────────────────
-static string SseEvent<T>(string name, T data)
-    => $"event: {name}\ndata: {JsonSerializer.Serialize(data, BackendJson.Options)}\n\n";
+static string SseEvent<T>(string name, T data, JsonTypeInfo<T> typeInfo)
+    => $"event: {name}\ndata: {JsonSerializer.Serialize(data, typeInfo)}\n\n";
 
 static GetMessagesQuery BuildMessagesQuery(HttpRequest r)
 {

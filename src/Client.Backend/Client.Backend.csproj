@@ -19,6 +19,26 @@
     <IsPackable>true</IsPackable>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!--
+      Native-AOT, platform-specific .NET tool (.NET 10 multi-RID tool packaging).
+      `dotnet pack` produces a per-RID package for each concrete RID plus a top-level
+      manifest package, and `dnx`/`dotnet tool install` auto-selects the matching RID.
+      Concrete RIDs are AOT-compiled (no shared runtime needed); the `any` RID is a
+      framework-dependent fallback for platforms we don't ship native binaries for.
+    -->
+    <RuntimeIdentifiers>win-x64;linux-x64;any</RuntimeIdentifiers>
+    <PublishAot Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Source-generate the minimal-API endpoints and keep the AOT/trim analyzers on for
+      every build (not just `publish -r <rid>`), so regressions in the backend's own
+      reachable code surface immediately. Referenced libraries (Client.Core/Protocol)
+      keep their reflection-based JSON helpers for the non-AOT frontends; those are
+      unreachable here and trimmed by ILC at publish time.
+    -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
