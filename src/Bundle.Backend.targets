@@ -57,9 +57,14 @@
   <!-- Produce a clean, framework-dependent publish of the backend for packaging. -->
   <Target Name="_PublishBackendForBundle" DependsOnTargets="_InitBackendBundleDir">
     <RemoveDir Directories="$(BackendBundleDir)" />
+    <!--
+      The backend sets PublishAot=true for its own RID-specific tool packages; force it off
+      here so this no-RID publish stays a portable framework-dependent build (AOT requires a
+      concrete RID). TUI/MCP bundle this FDD backend and spawn it via `dotnet exec`.
+    -->
     <MSBuild Projects="$(BackendProject)"
              Targets="Publish"
-             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);SelfContained=false;RuntimeIdentifier=;PublishDir=$(BackendBundleDir)" />
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);SelfContained=false;RuntimeIdentifier=;PublishAot=false;PublishDir=$(BackendBundleDir)" />
   </Target>
 
   <!-- Inject the published backend into the tool package under tools/<tfm>/any/backend/. -->

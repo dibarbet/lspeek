@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,14 +21,20 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!--
-      Native-AOT, platform-specific .NET tool (.NET 10 multi-RID tool packaging).
-      `dotnet pack` produces a per-RID package for each concrete RID plus a top-level
-      manifest package, and `dnx`/`dotnet tool install` auto-selects the matching RID.
-      Concrete RIDs are AOT-compiled (no shared runtime needed); the `any` RID is a
-      framework-dependent fallback for platforms we don't ship native binaries for.
+      Native-AOT, platform-specific .NET tool (.NET 10 RID-specific tool packaging).
+      ToolPackageRuntimeIdentifiers (rather than RuntimeIdentifiers) scopes the RID set to
+      tool packaging only, so normal `dotnet build`/`dotnet test` of the backend stay a plain
+      managed build. Because PublishAot is set, the SDK does NOT auto-create the per-RID
+      payloads (AOT can't cross-compile), so packaging is a two-step, per-OS flow:
+        * `dotnet pack`                         -> top-level manifest package (routing only)
+        * `dotnet pack -r win-x64`              -> win-x64 native-AOT payload   (on Windows)
+        * `dotnet pack -r linux-x64`            -> linux-x64 native-AOT payload (on Linux)
+        * `dotnet pack -r any -p:PublishAot=false` -> framework-dependent `any` fallback
+      `dnx`/`dotnet tool install lspeek-backend` reads the manifest and fetches the matching
+      RID payload, so the canvas keeps acquiring one universal id with no change.
     -->
-    <RuntimeIdentifiers>win-x64;linux-x64;any</RuntimeIdentifiers>
-    <PublishAot Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">true</PublishAot>
+    <ToolPackageRuntimeIdentifiers>win-x64;linux-x64;any</ToolPackageRuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--
       Source-generate the minimal-API endpoints and keep the AOT/trim analyzers on for
@@ -39,7 +45,46 @@
     -->
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <IsAotCompatible>true</IsAotCompatible>
+
+    <!--
+      The backend self-hosts Kestrel and serves its UI from an embedded resource, and the
+      native-AOT tool runs the executable directly (never under IIS). Disable the web-publish
+      machinery that would otherwise emit web.config / static-web-assets manifests.
+    -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
   </PropertyGroup>
+
+  <!-- Size/symbol optimizations that only apply to the native-AOT payload builds. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <!-- Don't ship debug symbols in the tool package (the native PDB alone is ~55 MB). -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Plain SDK + an explicit ASP.NET Core framework reference (instead of Microsoft.NET.Sdk.Web)
+      so the published tool doesn't carry IIS/static-web-assets cruft (web.config,
+      aspnetcorev2_inprocess.dll, *.staticwebassets.endpoints.json). The backend self-hosts
+      Kestrel and serves its UI from an embedded resource, so none of that is needed.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Re-add the global usings the Web SDK provides, since we use the plain SDK. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Client.Core\Client.Core.csproj" />
@@ -58,5 +103,23 @@
     <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="\" Link="LICENSE.txt" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
   </ItemGroup>
+
+  <!--
+    Belt-and-suspenders: drop publish artifacts that have no purpose in a native-AOT tool
+    package (reference PDBs, plus the IIS in-process shim should the AspNetCore framework
+    targets still emit it), so the package contains just the native executable +
+    DotnetToolSettings.xml.
+  -->
+  <Target Name="_StripBackendToolCruftFromPublish"
+          AfterTargets="Publish"
+          Condition="'$(PublishAot)' == 'true' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
+    <ItemGroup>
+      <_BackendPublishCruft Include="$(PublishDir)**\*.pdb" />
+      <_BackendPublishCruft Include="$(PublishDir)**\aspnetcorev2_inprocess.dll" />
+      <_BackendPublishCruft Include="$(PublishDir)**\web.config" />
+      <_BackendPublishCruft Include="$(PublishDir)**\*.staticwebassets.endpoints.json" />
+    </ItemGroup>
+    <Delete Files="@(_BackendPublishCruft)" />
+  </Target>
 
 </Project>
