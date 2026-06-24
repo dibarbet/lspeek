@@ -7,8 +7,8 @@ namespace ManualLspClient.Protocol;
 /// instance. Every .NET frontend always ships the backend in a <c>backend/</c> folder beside
 /// itself (see <c>src/Bundle.Backend.targets</c>): packaged, self-contained tools bundle the
 /// native-AOT backend executable, while the in-repo build output bundles the framework-dependent
-/// backend dll (run via <c>dotnet exec</c>). An explicit path or the <c>LSPEEK_BACKEND</c>
-/// environment variable overrides this for advanced/local scenarios.
+/// backend dll (run via <c>dotnet exec</c>). The <c>LSPEEK_BACKEND</c> environment variable
+/// overrides this for advanced/local scenarios.
 /// </summary>
 public static class BackendLauncher
 {
@@ -26,9 +26,9 @@ public static class BackendLauncher
     /// apphost resolves to <c>(path, [])</c>; a framework-dependent dll resolves to
     /// <c>("dotnet", ["exec", dllPath])</c>.
     /// </summary>
-    public static (string FileName, IReadOnlyList<string> PrefixArgs) Resolve(string? explicitPath = null)
+    public static (string FileName, IReadOnlyList<string> PrefixArgs) Resolve()
     {
-        var configured = explicitPath ?? Environment.GetEnvironmentVariable(EnvironmentVariable);
+        var configured = Environment.GetEnvironmentVariable(EnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configured))
         {
             if (Directory.Exists(configured) && TryDirectory(configured) is { } fromDir)
@@ -36,8 +36,7 @@ public static class BackendLauncher
             if (File.Exists(configured))
                 return AsLaunch(configured);
             throw new BackendException(
-                $"Configured backend path '{configured}' " +
-                $"(from {(explicitPath is null ? EnvironmentVariable : "options")}) was not found.");
+                $"Configured backend path '{configured}' (from {EnvironmentVariable}) was not found.");
         }
 
         var baseDir = AppContext.BaseDirectory;

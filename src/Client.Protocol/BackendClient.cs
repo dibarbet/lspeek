@@ -12,9 +12,6 @@ public sealed class BackendClientOptions
     /// <summary>Instance id to address; each frontend defaults to a single private instance.</summary>
     public string Instance { get; set; } = "default";
 
-    /// <summary>Explicit backend executable or directory; falls back to <see cref="BackendLauncher"/> discovery.</summary>
-    public string? ExecutablePath { get; set; }
-
     /// <summary>Port to bind; 0 lets the OS pick an ephemeral port (recommended).</summary>
     public int Port { get; set; }
 
@@ -89,7 +86,7 @@ public sealed class BackendClient : IAsyncDisposable
         if (_process is not null)
             throw new InvalidOperationException("Backend already started.");
 
-        var (fileName, prefixArgs) = BackendLauncher.Resolve(_options.ExecutablePath);
+        var (fileName, prefixArgs) = BackendLauncher.Resolve();
 
         var psi = new ProcessStartInfo
         {
