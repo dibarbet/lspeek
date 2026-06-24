@@ -8,14 +8,14 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  # Framework-dependent packages that don't need a native-AOT toolchain:
+  #   * lspeek (TUI) and lspeek-mcp tools (they bundle the FDD backend)
+  #   * lspeek-backend routing manifest (project-metadata only; identical on any OS)
+  #   * lspeek-backend.any FDD fallback (managed, platform-agnostic)
+  pack-tools:
     runs-on: ubuntu-latest
-    environment:
-      name: release
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -28,27 +28,136 @@ jobs:
           dotnet-version: 10.0.x
           dotnet-quality: preview
 
+      - name: Pack lspeek (TUI) tool
+        run: dotnet pack src/Client.Tui/Client.Tui.csproj --configuration Release --output ${{ github.workspace }}/artifacts/tools --nologo
+
+      - name: Pack lspeek-mcp tool
+        run: dotnet pack src/Client.Mcp/Client.Mcp.csproj --configuration Release --output ${{ github.workspace }}/artifacts/tools --nologo
+
+      - name: Pack lspeek-backend manifest (routing only)
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release --output ${{ github.workspace }}/artifacts/manifest --nologo
+
+      - name: Pack lspeek-backend.any (framework-dependent fallback)
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release -r any -p:PublishAot=false --output ${{ github.workspace }}/artifacts/rids --nologo
+
+      - name: Upload tool packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-tools
+          path: artifacts/tools/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload backend manifest package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-manifest
+          path: artifacts/manifest/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload backend any (FDD) package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rid-any
+          path: artifacts/rids/lspeek-backend.any.*.nupkg
+          if-no-files-found: error
+
+  # Native-AOT win-x64 payload. AOT can't cross-compile, so this must run on Windows.
+  pack-backend-win:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Pack lspeek-backend (win-x64 native AOT)
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release -r win-x64 --output ${{ github.workspace }}/artifacts/rids --nologo
+
+      - name: Upload win-x64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rid-win
+          path: artifacts/rids/lspeek-backend.win-x64.*.nupkg
+          if-no-files-found: error
+
+  # Native-AOT linux-x64 payload. Needs clang + zlib for the ILC native link step.
+  pack-backend-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Install native AOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Pack lspeek-backend (linux-x64 native AOT)
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release -r linux-x64 --output ${{ github.workspace }}/artifacts/rids --nologo
+
+      - name: Upload linux-x64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rid-linux
+          path: artifacts/rids/lspeek-backend.linux-x64.*.nupkg
+          if-no-files-found: error
+
+  publish:
+    needs: [pack-tools, pack-backend-win, pack-backend-linux]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
       - name: NuGet login
         id: nuget-login
         uses: NuGet/login@v1
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      - name: Pack lspeek (TUI) tool
-        run: dotnet pack src/Client.Tui/Client.Tui.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
+      # Push the RID-specific payloads (win-x64, linux-x64, any) and the independent
+      # TUI/MCP tools FIRST, so the routing manifest only goes live once every RID
+      # package it points at already exists. All packages share one deterministic
+      # version (Nerdbank.GitVersioning from the same checked-out commit), and
+      # `dotnet nuget push` takes a single glob, so push one artifact folder per call.
+      - name: Push RID payloads and tools
+        run: |
+          for dir in pkg-rid-win pkg-rid-linux pkg-rid-any pkg-tools; do
+            dotnet nuget push "artifacts/$dir/*.nupkg" \
+              --source https://api.nuget.org/v3/index.json \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate --force-english-output
+          done
 
-      - name: Pack lspeek-mcp tool
-        run: dotnet pack src/Client.Mcp/Client.Mcp.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
-
-      - name: Pack lspeek-backend tool
-        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-package
-          path: artifacts/nuget/*.nupkg
-          if-no-files-found: error
-
-      - name: Publish to nuget.org
-        run: dotnet nuget push artifacts/nuget/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --skip-duplicate --force-english-output
+      # Push the routing manifest LAST.
+      - name: Push backend manifest
+        run: |
+          dotnet nuget push "artifacts/pkg-manifest/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --skip-duplicate --force-english-output
