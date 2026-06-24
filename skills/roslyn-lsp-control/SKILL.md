@@ -39,8 +39,10 @@ result envelopes are the same.
   first run), so it just needs the .NET SDK on PATH. You can always point any frontend at a specific
   host with the `LSPEEK_BACKEND` environment variable (a host file or a directory containing it); for
   the canvas's dnx path, `LSPEEK_BACKEND_VERSION` pins an exact version and `LSPEEK_BACKEND_PRERELEASE=1`
-  allows prereleases. The bundled/dnx backend is framework-dependent and needs the ASP.NET Core shared
-  runtime (ships with the .NET SDK).
+  allows prereleases. The dnx backend is a **native-AOT, self-contained** build for win-x64/linux-x64
+  (no .NET runtime needed), with an `any` framework-dependent fallback for other platforms; the backend
+  **bundled** in the `lspeek`/`lspeek-mcp` tools is framework-dependent and uses the ASP.NET Core shared
+  runtime that ships with the .NET SDK.
 - **The frontend you intend to use is available:**
   - Canvas: confirm with `list_canvas_capabilities(canvasId:"roslyn-lsp-tester")`. It lives in this
     repo under `.github/extensions/roslyn-lsp-tester`, so it is auto-discovered when working in the

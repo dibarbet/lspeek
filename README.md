@@ -92,7 +92,8 @@ This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP
 
 The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
 dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
-NuGet (cached after first run) so it works off-repo with only the .NET SDK installed. See
+NuGet (a native-AOT, platform-specific build for win-x64/linux-x64, with an `any` framework-dependent
+fallback; cached after first run) so it works off-repo with only the .NET SDK installed. See
 [the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
 
 Set `LSPEEK_BACKEND` to override discovery — e.g. point every frontend at one freshly built backend
@@ -147,9 +148,14 @@ Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
 The canvas is two small JS files — it can't bundle the .NET backend the way the packaged tools do.
 Instead, when it can't find a local backend (no `LSPEEK_BACKEND`, no in-repo build) it runs
 **`dotnet dnx lspeek-backend`**, which downloads the published backend tool from NuGet on first use,
-caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides
-`dnx` and the ASP.NET Core runtime). This is why the backend is published as its own
-[`lspeek-backend`](https://www.nuget.org/packages/lspeek-backend) tool alongside `lspeek` / `lspeek-mcp`.
+caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides `dnx`).
+
+The backend ships as its own [`lspeek-backend`](https://www.nuget.org/packages/lspeek-backend) tool,
+published as a **native-AOT, platform-specific** build for **win-x64** and **linux-x64** — a
+self-contained native executable, so on those platforms the backend needs **no .NET runtime of its
+own** — plus an **`any`** framework-dependent fallback for other platforms (which uses the ASP.NET Core
+shared runtime that ships with the SDK). `dnx` reads the package's RID manifest and fetches whichever
+payload matches the current machine.
 
 Optional environment overrides (read by the canvas):
 
