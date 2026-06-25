@@ -34,6 +34,16 @@
       RID payload, so the canvas keeps acquiring one universal id with no change.
     -->
     <ToolPackageRuntimeIdentifiers>win-x64;linux-x64;any</ToolPackageRuntimeIdentifiers>
+    <!--
+      RuntimeIdentifiers (plural) is restore-only: it makes a single top-level `restore` produce
+      multi-RID assets for this project. The frontends bundle a self-contained (JIT) copy of the
+      backend per RID; the SDK packs those frontend RIDs in parallel, and each inner pack only
+      *publishes* (never restores) the backend, so the backend's assets must already cover every
+      RID. It does NOT change this tool's own packaging: _UserSpecifiedToolPackageRids prefers
+      ToolPackageRuntimeIdentifiers above, and PublishAot=true keeps the SDK from auto-creating
+      per-RID payloads here (AOT can't cross-compile - see the two-step flow above).
+    -->
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--

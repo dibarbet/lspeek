@@ -14,26 +14,27 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!--
-      Self-contained, platform-specific .NET tool (.NET 10 RID-specific tool packaging). The MCP
-      server bundles the native-AOT backend for the matching RID (see Bundle.Backend.targets), so
-      it must itself be platform-specific. `dotnet pack` emits a routing manifest;
-      `dotnet pack -r <rid>` emits the self-contained payload for that RID (packed per-OS - see
-      publish.yml).
+      Self-contained, platform-specific .NET tool published for every supported RID (.NET 10
+      RID-specific tool packaging). Each frontend bundles a self-contained copy of the backend for
+      the matching RID (see Bundle.Backend.targets) so the installed tool needs no separate .NET
+      runtime. Both the frontend and the bundled backend are self-contained *JIT* builds, which
+      cross-compile to any RID from any OS - so a single `dotnet pack` (no -r) on one runner
+      auto-produces the routing manifest plus one self-contained payload per RID (see publish.yml),
+      with no per-OS native-toolchain matrix. (The standalone lspeek-backend tool is additionally
+      published native-AOT for win-x64/linux-x64; the bundled backend stays JIT so every frontend
+      RID - including osx/arm64/musl - builds on a single runner.)
 
-        * ToolPackageRuntimeIdentifiers scopes the RID set to packaging, so normal
-          `dotnet build`/`dotnet test` stay a plain, RID-agnostic managed build.
-        * SelfContained applies only to the RID-specific inner builds (the JIT runtime ships in
+        * ToolPackageRuntimeIdentifiers lists the RIDs to pack and scopes self-contained packaging
+          to `dotnet pack`, so normal `dotnet build`/`dotnet test` stay a plain, RID-agnostic
+          managed build.
+        * RuntimeIdentifiers (plural) makes a single `restore` produce assets for every RID, so the
+          SDK's per-RID pack recursion finds them (no per-RID restore needed).
+        * SelfContained applies only to the RID-specific payload builds (the JIT runtime ships in
           the payload); the no-RID manifest build stays framework-dependent and lightweight.
-        * The SDK would otherwise auto-create the per-RID payloads from one `dotnet pack`, trying
-          to cross-compile every RID's native-AOT backend on a single OS (impossible). Declaring
-          PublishAot during the no-RID manifest pack flips the SDK's _InnerToolsPublishAot guard
-          so it skips that auto-recursion; it's gated to the manifest pack only, so the frontend
-          itself is never AOT-compiled (the SDK forces PublishAot=false before the manifest's own
-          publish, and the RID payloads remain plain self-contained JIT builds).
     -->
-    <ToolPackageRuntimeIdentifiers>win-x64;linux-x64</ToolPackageRuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <PublishAot Condition="'$(RuntimeIdentifier)' == '' and '$(_IsPacking)' == 'true'">true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

@@ -62,18 +62,18 @@ gotchas).
 ## Installing
 
 Both .NET frontends ship as [.NET tools](https://learn.microsoft.com/dotnet/core/tools/global-tools)
-that are **self-contained and platform-specific** (win-x64 and linux-x64), with the backend's
-**native-AOT executable bundled inside the package** (under `tools/any/<rid>/backend/`). An installed
-tool carries its own runtime and spawns its bundled native backend — no .NET runtime and no extra
-setup required:
+that are **self-contained and platform-specific**, with a self-contained copy of the backend
+**bundled inside the package** (under `tools/any/<rid>/backend/`). An installed tool carries its own
+runtime and spawns its bundled backend — no .NET runtime and no extra setup required:
 
 ```bash
 dotnet tool install --global lspeek        # the TUI
 dotnet tool install --global lspeek-mcp    # the MCP server
 ```
 
-`dotnet tool install` reads each tool's RID manifest and fetches the payload matching your machine
-(**win-x64** or **linux-x64** — the supported platforms). To run without installing, use
+`dotnet tool install` reads each tool's RID manifest and fetches the payload matching your machine.
+The frontends are published for the full RID set — **win-x64, win-arm64, linux-x64, linux-arm64,
+linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64**. To run without installing, use
 `dnx lspeek …` (the TUI) or point your agent at the packed `lspeek-mcp`.
 
 ## Building
@@ -88,9 +88,9 @@ This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP
 1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), then
 2. a bundled `backend/` subdirectory beside the frontend (`AppContext.BaseDirectory/backend/`).
 
-Packaged tools ship the backend's **native-AOT executable** in that `backend/` folder (run directly);
-a local `dotnet build` copies the backend's **managed** build output there instead (run via
-`dotnet exec`). Either way the same `backend/` probe finds it.
+Packaged tools ship a **self-contained** copy of the backend in that `backend/` folder — a
+platform-specific apphost run directly; a local `dotnet build` copies the backend's **managed** build
+output there instead (run via `dotnet exec`). Either way the same `backend/` probe finds it.
 
 The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
 dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
