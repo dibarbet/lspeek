@@ -14,27 +14,27 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!--
-      Self-contained, platform-specific .NET tool published for every supported RID (.NET 10
-      RID-specific tool packaging). Each frontend bundles a self-contained copy of the backend for
-      the matching RID (see Bundle.Backend.targets) so the installed tool needs no separate .NET
-      runtime. Both the frontend and the bundled backend are self-contained *JIT* builds, which
-      cross-compile to any RID from any OS - so a single `dotnet pack` (no -r) on one runner
+      Self-contained, ReadyToRun (R2R), platform-specific .NET tool published for every supported RID
+      (.NET 10 RID-specific tool packaging). Each frontend bundles a self-contained copy of the backend
+      for the matching RID (see Bundle.Backend.targets) so the installed tool needs no separate .NET
+      runtime. Both the frontend and the bundled backend are self-contained R2R builds; R2R (crossgen2)
+      cross-compiles to any RID from any OS - so a single `dotnet pack` (no -r) on one runner
       auto-produces the routing manifest plus one self-contained payload per RID (see publish.yml),
-      with no per-OS native-toolchain matrix. (The standalone lspeek-backend tool is additionally
-      published native-AOT for win-x64/linux-x64; the bundled backend stays JIT so every frontend
-      RID - including osx/arm64/musl - builds on a single runner.)
+      with no per-OS native-toolchain matrix (the whole reason we use R2R instead of native AOT, which
+      can't cross-compile).
 
         * ToolPackageRuntimeIdentifiers lists the RIDs to pack and scopes self-contained packaging
           to `dotnet pack`, so normal `dotnet build`/`dotnet test` stay a plain, RID-agnostic
           managed build.
         * RuntimeIdentifiers (plural) makes a single `restore` produce assets for every RID, so the
           SDK's per-RID pack recursion finds them (no per-RID restore needed).
-        * SelfContained applies only to the RID-specific payload builds (the JIT runtime ships in
-          the payload); the no-RID manifest build stays framework-dependent and lightweight.
+        * SelfContained / PublishReadyToRun apply only to the RID-specific payload builds (the runtime
+          ships in the payload); the no-RID manifest build stays framework-dependent and lightweight.
     -->
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

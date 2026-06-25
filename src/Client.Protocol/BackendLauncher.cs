@@ -6,9 +6,9 @@ namespace ManualLspClient.Protocol;
 /// Locates the bundled <c>lspeek-backend</c> so a frontend can spawn its own private backend
 /// instance. Every .NET frontend always ships the backend in a <c>backend/</c> folder beside
 /// itself (see <c>src/Bundle.Backend.targets</c>): packaged, self-contained tools bundle the
-/// native-AOT backend executable, while the in-repo build output bundles the framework-dependent
-/// backend dll (run via <c>dotnet exec</c>). The <c>LSPEEK_BACKEND</c> environment variable
-/// overrides this for advanced/local scenarios.
+/// self-contained (ReadyToRun) backend executable, while the in-repo build output bundles the
+/// framework-dependent backend dll (run via <c>dotnet exec</c>). The <c>LSPEEK_BACKEND</c>
+/// environment variable overrides this for advanced/local scenarios.
 /// </summary>
 public static class BackendLauncher
 {
@@ -22,7 +22,7 @@ public static class BackendLauncher
     public const string BundledSubdirectory = "backend";
 
     /// <summary>
-    /// Resolves how to launch the backend: a file name plus any prefix arguments. A native
+    /// Resolves how to launch the backend: a file name plus any prefix arguments. A self-contained
     /// apphost resolves to <c>(path, [])</c>; a framework-dependent dll resolves to
     /// <c>("dotnet", ["exec", dllPath])</c>.
     /// </summary>

@@ -3,12 +3,12 @@
   <!--
     Bundles lspeek-backend next to a frontend (TUI / MCP) so an installed tool can spawn it
     off-repo without a separate .NET runtime. The frontends ship for many RIDs (win/linux/osx,
-    x64/arm64, glibc/musl), so the *bundled* backend is a self-contained JIT build that, like the
-    frontend itself, cross-compiles to any RID from any OS - letting a single `dotnet pack` produce
-    every RID payload on one runner (no per-OS native-toolchain matrix). The standalone
-    lspeek-backend tool is still published native-AOT (win-x64/linux-x64); only the bundled copy is
-    JIT. The in-repo build output instead bundles the backend's managed, framework-dependent build
-    output for fast local run/smoke.
+    x64/arm64, glibc/musl), so the *bundled* backend is a self-contained, trimmed, ReadyToRun (R2R)
+    build that, like the frontend itself, cross-compiles to any RID from any OS - letting a single
+    `dotnet pack` produce every RID payload on one runner (no per-OS native-toolchain matrix; this is
+    why the backend uses R2R rather than native AOT, which can't cross-compile). The bundled copy is
+    the same build as the standalone lspeek-backend tool. The in-repo build output instead bundles the
+    backend's managed, framework-dependent build output for fast local run/smoke.
 
       * _CopyBackendToOutput  - (local dev, no RID) copies the backend's managed build output into
                                 $(OutDir)backend/ for local `dotnet run`/smoke (run via `dotnet exec`).
@@ -58,7 +58,7 @@
 
   <!--
     Copy the backend's managed build output beside the frontend so local run/smoke finds it.
-    Local dev only (no RID); RID packs bundle the native backend from the publish staging dir.
+    Local dev only (no RID); RID packs bundle the self-contained backend from the publish staging dir.
   -->
   <Target Name="_CopyBackendToOutput" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' == ''">
     <ItemGroup>
@@ -72,11 +72,11 @@
 
   <!--
     Publish the backend for this package's RID and stage it for bundling. The bundled backend is a
-    self-contained JIT build (SelfContained=true, PublishAot=false) so it cross-compiles to any RID
-    from any OS - the frontends ship for osx/arm64/musl too, and we don't want a per-OS native-AOT
-    CI matrix. (The standalone lspeek-backend tool is still native-AOT for win-x64/linux-x64; that's
-    a separate pack of the same project.) Only runs for RID-specific payload packs; the no-RID
-    manifest pack carries no implementation, so it bundles nothing.
+    self-contained, trimmed, ReadyToRun build (SelfContained=true, PublishReadyToRun=true,
+    PublishTrimmed=true) so it cross-compiles to any RID from any OS - the frontends ship for
+    osx/arm64/musl too, and R2R (unlike native AOT) needs no per-OS native-toolchain matrix. It is the
+    same build as the standalone lspeek-backend tool. Only runs for RID-specific payload packs; the
+    no-RID manifest pack carries no implementation, so it bundles nothing.
 
     No explicit Restore here on purpose: the SDK packs the frontend RIDs in parallel (BuildInParallel
     on the same project), so a per-RID Restore would race on the backend's shared project.assets.json
@@ -89,7 +89,7 @@
     <RemoveDir Directories="$(BackendBundleDir)" />
     <MSBuild Projects="$(BackendProject)"
              Targets="Publish"
-             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishAot=false;PublishDir=$(BackendBundleDir)" />
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishReadyToRun=true;PublishTrimmed=true;PublishDir=$(BackendBundleDir)" />
   </Target>
 
   <!--

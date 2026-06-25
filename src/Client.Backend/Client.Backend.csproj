@@ -21,55 +21,58 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!--
-      Native-AOT, platform-specific .NET tool (.NET 10 RID-specific tool packaging).
-      ToolPackageRuntimeIdentifiers (rather than RuntimeIdentifiers) scopes the RID set to
-      tool packaging only, so normal `dotnet build`/`dotnet test` of the backend stay a plain
-      managed build. Because PublishAot is set, the SDK does NOT auto-create the per-RID
-      payloads (AOT can't cross-compile), so packaging is a two-step, per-OS flow:
-        * `dotnet pack`                         -> top-level manifest package (routing only)
-        * `dotnet pack -r win-x64`              -> win-x64 native-AOT payload   (on Windows)
-        * `dotnet pack -r linux-x64`            -> linux-x64 native-AOT payload (on Linux)
-        * `dotnet pack -r any -p:PublishAot=false` -> framework-dependent `any` fallback
-      `dnx`/`dotnet tool install lspeek-backend` reads the manifest and fetches the matching
-      RID payload, so the canvas keeps acquiring one universal id with no change.
+      Self-contained, trimmed, ReadyToRun (R2R), platform-specific .NET tool (.NET 10 RID-specific
+      tool packaging). Unlike native AOT, R2R (crossgen2) cross-compiles to any OS/arch from a single
+      runner, so the SDK auto-produces every per-RID payload from one ordinary pack - no per-OS
+      native-toolchain matrix and no two-step flow:
+        * `dotnet pack`  -> routing manifest + one self-contained R2R payload per RID, all on one runner.
+      `dnx`/`dotnet tool install lspeek-backend` reads the manifest and fetches the matching RID
+      payload, so the canvas keeps acquiring one universal id with no change.
+
+      ToolPackageRuntimeIdentifiers (rather than RuntimeIdentifiers) scopes the per-RID self-contained
+      packaging to `dotnet pack`, so normal `dotnet build`/`dotnet test` of the backend stay a plain,
+      RID-agnostic managed build.
     -->
-    <ToolPackageRuntimeIdentifiers>win-x64;linux-x64;any</ToolPackageRuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>
     <!--
       RuntimeIdentifiers (plural) is restore-only: it makes a single top-level `restore` produce
-      multi-RID assets for this project. The frontends bundle a self-contained (JIT) copy of the
-      backend per RID; the SDK packs those frontend RIDs in parallel, and each inner pack only
-      *publishes* (never restores) the backend, so the backend's assets must already cover every
-      RID. It does NOT change this tool's own packaging: _UserSpecifiedToolPackageRids prefers
-      ToolPackageRuntimeIdentifiers above, and PublishAot=true keeps the SDK from auto-creating
-      per-RID payloads here (AOT can't cross-compile - see the two-step flow above).
+      multi-RID assets for this project. The frontends bundle a self-contained copy of the backend
+      per RID; the SDK packs those frontend RIDs in parallel, and each inner pack only *publishes*
+      (never restores) the backend, so the backend's assets must already cover every RID.
     -->
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
-    <PublishAot>true</PublishAot>
+
+    <!--
+      Per-RID payload builds are self-contained, ReadyToRun, and trimmed. These take effect only for
+      RID-specific publishes; the no-RID routing manifest and local `dotnet build`/`dotnet test` stay
+      a plain framework-dependent managed build.
+    -->
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <PublishTrimmed Condition="'$(RuntimeIdentifier)' != ''">true</PublishTrimmed>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--
-      Source-generate the minimal-API endpoints and keep the AOT/trim analyzers on for
-      every build (not just `publish -r <rid>`), so regressions in the backend's own
-      reachable code surface immediately. Referenced libraries (Client.Core/Protocol)
-      keep their reflection-based JSON helpers for the non-AOT frontends; those are
-      unreachable here and trimmed by ILC at publish time.
+      Source-generate the minimal-API endpoints and keep the AOT/trim analyzers on for every build
+      (not just `publish -r <rid>`), so trim regressions in the backend's own reachable code surface
+      immediately. We ship R2R + trimmed (not native AOT, which can't cross-compile), but keeping
+      IsAotCompatible on means the backend also stays AOT-clean for free. Referenced libraries
+      (Client.Core/Protocol) keep their reflection-based JSON helpers for the non-trimmed frontends;
+      those are unreachable here and removed by the trimmer at publish time.
     -->
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <IsAotCompatible>true</IsAotCompatible>
 
     <!--
-      The backend self-hosts Kestrel and serves its UI from an embedded resource, and the
-      native-AOT tool runs the executable directly (never under IIS). Disable the web-publish
-      machinery that would otherwise emit web.config / static-web-assets manifests.
+      The backend self-hosts Kestrel and serves its UI from an embedded resource, and the tool runs
+      the executable directly (never under IIS). Disable the web-publish machinery that would
+      otherwise emit web.config / static-web-assets manifests.
     -->
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
   </PropertyGroup>
 
-  <!-- Size/symbol optimizations that only apply to the native-AOT payload builds. -->
-  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
-    <OptimizationPreference>Size</OptimizationPreference>
-    <StripSymbols>true</StripSymbols>
-    <!-- Don't ship debug symbols in the tool package (the native PDB alone is ~55 MB). -->
+  <!-- Keep the per-RID self-contained payload lean: don't ship debug symbols in the tool package. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
@@ -115,14 +118,14 @@
   </ItemGroup>
 
   <!--
-    Belt-and-suspenders: drop publish artifacts that have no purpose in a native-AOT tool
-    package (reference PDBs, plus the IIS in-process shim should the AspNetCore framework
-    targets still emit it), so the package contains just the native executable +
+    Belt-and-suspenders: drop publish artifacts that have no purpose in a self-contained tool
+    package (PDBs, plus the IIS in-process shim / web.config should the AspNetCore framework
+    targets still emit them), so the package contains just the runtime + app + apphost +
     DotnetToolSettings.xml.
   -->
   <Target Name="_StripBackendToolCruftFromPublish"
           AfterTargets="Publish"
-          Condition="'$(PublishAot)' == 'true' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
+          Condition="'$(RuntimeIdentifier)' != ''">
     <ItemGroup>
       <_BackendPublishCruft Include="$(PublishDir)**\*.pdb" />
       <_BackendPublishCruft Include="$(PublishDir)**\aspnetcorev2_inprocess.dll" />

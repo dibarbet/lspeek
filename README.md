@@ -94,8 +94,8 @@ output there instead (run via `dotnet exec`). Either way the same `backend/` pro
 
 The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
 dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
-NuGet (a native-AOT, platform-specific build for win-x64/linux-x64, with an `any` framework-dependent
-fallback; cached after first run) so it works off-repo with only the .NET SDK installed. See
+NuGet (a self-contained, ReadyToRun, platform-specific build for every supported RID; cached after first
+run) so it works off-repo with only the .NET SDK installed. See
 [the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
 
 Set `LSPEEK_BACKEND` to override discovery — e.g. point every frontend at one freshly built backend
@@ -153,11 +153,11 @@ Instead, when it can't find a local backend (no `LSPEEK_BACKEND`, no in-repo bui
 caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides `dnx`).
 
 The backend ships as its own [`lspeek-backend`](https://www.nuget.org/packages/lspeek-backend) tool,
-published as a **native-AOT, platform-specific** build for **win-x64** and **linux-x64** — a
-self-contained native executable, so on those platforms the backend needs **no .NET runtime of its
-own** — plus an **`any`** framework-dependent fallback for other platforms (which uses the ASP.NET Core
-shared runtime that ships with the SDK). `dnx` reads the package's RID manifest and fetches whichever
-payload matches the current machine.
+published as a **self-contained, ReadyToRun (R2R), platform-specific** build for every supported RID
+(win/linux/osx, x64/arm64, glibc/musl) — a self-contained executable that bundles the .NET runtime, so
+the backend needs **no .NET runtime of its own**. R2R cross-compiles, so all RID payloads are built on a
+single runner. `dnx` reads the package's RID manifest and fetches whichever payload matches the current
+machine.
 
 Optional environment overrides (read by the canvas):
 
