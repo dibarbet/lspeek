@@ -57,7 +57,6 @@ public class MessageListView : ITuiView
             case ConsoleKey.R:
                 if (!_store.IsServerRunning)
                 {
-                    // Could show a brief flash message, but for now just ignore
                     break;
                 }
                 return Task.FromResult<Navigation>(

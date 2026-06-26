@@ -30,13 +30,11 @@ public class ServerConfigProvider
     /// </summary>
     public ServerConfig Resolve(string serverNameOrPath)
     {
-        // If it's a path to an existing file, load it directly
         if (File.Exists(serverNameOrPath))
         {
             return LoadFromFile(serverNameOrPath);
         }
 
-        // Otherwise, look up by name
         if (_servers.TryGetValue(serverNameOrPath, out var config))
         {
             return config;

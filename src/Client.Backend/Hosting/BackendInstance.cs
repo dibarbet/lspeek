@@ -11,7 +11,7 @@ namespace Lspeek.Backend.Hosting;
 /// Owns one LSP server's lifecycle for a single <c>instanceId</c>: resolves + spawns the
 /// process, wires a <see cref="RawLspConnection"/> and a <see cref="MessageBuffer"/>, and
 /// exposes the unified action surface (start/stop/status/request/notify/send-raw/respond/
-/// messages/wait/clear). Ported from the canvas extension's <c>LspInstance</c>.
+/// messages/wait/clear).
 /// </summary>
 public sealed class BackendInstance : IAsyncDisposable
 {

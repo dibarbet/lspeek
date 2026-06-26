@@ -49,7 +49,6 @@ public class TuiStore
         MetaModel = metaModel;
         ServerName = serverName;
 
-        // Wire local session log → progress tracker.
         _log.MessageAdded += _progress.OnMessageAdded;
 
         if (initialStatus is not null)
@@ -176,9 +175,6 @@ public class TuiStore
         }
     }
 
-    /// <summary>
-    /// Copies text to the clipboard.
-    /// </summary>
     public static void CopyToClipboard(string text)
     {
         TextCopy.ClipboardService.SetText(text);

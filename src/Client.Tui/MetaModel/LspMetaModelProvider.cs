@@ -59,25 +59,16 @@ public class LspMetaModelProvider
             .ToList();
     }
 
-    /// <summary>
-    /// Looks up a request by method name.
-    /// </summary>
     public LspRequest? GetRequest(string method)
     {
         return _model.Requests.FirstOrDefault(r => r.Method == method);
     }
 
-    /// <summary>
-    /// Looks up a notification by method name.
-    /// </summary>
     public LspNotification? GetNotification(string method)
     {
         return _model.Notifications.FirstOrDefault(n => n.Method == method);
     }
 
-    /// <summary>
-    /// Resolves a structure by name.
-    /// </summary>
     public LspStructure? GetStructure(string name)
     {
         return _structures.GetValueOrDefault(name);
@@ -94,9 +85,6 @@ public class LspMetaModelProvider
         return properties;
     }
 
-    /// <summary>
-    /// Resolves a type reference name to determine if it's a structure, enumeration, or type alias.
-    /// </summary>
     public LspEnumeration? GetEnumeration(string name) => _enumerations.GetValueOrDefault(name);
     public LspTypeAlias? GetTypeAlias(string name) => _typeAliases.GetValueOrDefault(name);
 

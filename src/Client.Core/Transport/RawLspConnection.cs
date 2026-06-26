@@ -19,8 +19,8 @@ public sealed record ObservedMessage(
     JsonElement? Payload);
 
 /// <summary>
-/// Low-level LSP wire client over Content-Length framed JSON-RPC. Ported from the canvas
-/// extension's hand-rolled client so the backend has exact parity: composed request/notify,
+/// Low-level LSP wire client over Content-Length framed JSON-RPC. Mirrors the canvas
+/// extension's hand-rolled client for exact parity: composed request/notify,
 /// verbatim <c>send_raw</c> (object/array/batch, custom ids), generic handling of any
 /// server-&gt;client request, optional auto-respond to infrastructure requests, and manual
 /// responses. A single writer is serialized so frames never interleave on the stream.

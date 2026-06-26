@@ -8,8 +8,7 @@ namespace Lspeek.Tests.Integration;
 /// <summary>
 /// Tests for <see cref="MessageBuffer"/> — the seq-numbered traffic buffer that backs the
 /// backend's <c>get_messages</c> / <c>wait_for_message</c> endpoints (and therefore the
-/// identical canvas action and MCP tool). Verifies the filtering and waiter semantics ported
-/// from the canvas extension's per-instance buffer.
+/// identical canvas action and MCP tool). Verifies the filtering and waiter semantics.
 /// </summary>
 public class MessageBufferTests
 {
