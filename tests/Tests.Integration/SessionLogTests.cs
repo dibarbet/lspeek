@@ -1,10 +1,9 @@
 using System.Text.Json;
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Tests.Integration.Harness;
+using Lspeek.Tui.Session;
+using Lspeek.Tests.Integration.Harness;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration;
+namespace Lspeek.Tests.Integration;
 
 public class SessionLogTests
 {
@@ -26,15 +25,15 @@ public class SessionLogTests
         Assert.Equal(2, messages.Count);
 
         var request = messages[0];
-        Assert.Equal(MessageDirection.Sent, request.Direction);
-        Assert.Equal(MessageType.Request, request.MessageType);
+        Assert.True(request.IsSent);
+        Assert.True(request.IsRequest);
         Assert.Equal("initialize", request.Method);
         Assert.NotNull(request.Id);
         Assert.Equal(MessageStatus.Ok, request.Status);
 
         var response = messages[1];
-        Assert.Equal(MessageDirection.Received, response.Direction);
-        Assert.Equal(MessageType.Response, response.MessageType);
+        Assert.False(response.IsSent);
+        Assert.True(response.IsResponse);
         Assert.Equal("initialize", response.Method);
         Assert.Equal(request.Id, response.Id);
         Assert.Equal(MessageStatus.Ok, response.Status);
@@ -51,8 +50,8 @@ public class SessionLogTests
         Assert.Single(messages);
 
         var notification = messages[0];
-        Assert.Equal(MessageDirection.Sent, notification.Direction);
-        Assert.Equal(MessageType.Notification, notification.MessageType);
+        Assert.True(notification.IsSent);
+        Assert.True(notification.IsNotification);
         Assert.Equal("initialized", notification.Method);
         Assert.Null(notification.Id);
         Assert.Equal(MessageStatus.Sent, notification.Status);
@@ -70,16 +69,16 @@ public class SessionLogTests
         Assert.Equal(3, messages.Count);
 
         Assert.Equal("initialize", messages[0].Method);
-        Assert.Equal(MessageType.Request, messages[0].MessageType);
-        Assert.Equal(MessageDirection.Sent, messages[0].Direction);
+        Assert.True(messages[0].IsRequest);
+        Assert.True(messages[0].IsSent);
 
         Assert.Equal("initialize", messages[1].Method);
-        Assert.Equal(MessageType.Response, messages[1].MessageType);
-        Assert.Equal(MessageDirection.Received, messages[1].Direction);
+        Assert.True(messages[1].IsResponse);
+        Assert.False(messages[1].IsSent);
 
         Assert.Equal("initialized", messages[2].Method);
-        Assert.Equal(MessageType.Notification, messages[2].MessageType);
-        Assert.Equal(MessageDirection.Sent, messages[2].Direction);
+        Assert.True(messages[2].IsNotification);
+        Assert.True(messages[2].IsSent);
     }
 
     [Fact]
@@ -91,17 +90,17 @@ public class SessionLogTests
             new { type = 3, message = "Hello from server" });
 
         await harness.WaitForLogEntryAsync(m =>
-            m.Direction == MessageDirection.Received &&
+            !m.IsSent &&
             m.Method == "window/logMessage");
 
         var messages = harness.Log.GetFiltered(
-            direction: MessageDirection.Received, method: "window/logMessage");
+            isSent: false, method: "window/logMessage");
         Assert.Single(messages);
 
         var notification = messages[0];
-        Assert.Equal(MessageType.Notification, notification.MessageType);
+        Assert.True(notification.IsNotification);
         Assert.Equal(MessageStatus.Info, notification.Status);
-        Assert.NotNull(notification.Json);
+        Assert.NotNull(notification.Body);
     }
 
     [Fact]
@@ -113,13 +112,13 @@ public class SessionLogTests
             new { token = "test-token" });
 
         await harness.WaitForLogEntryAsync(m =>
-            m.Direction == MessageDirection.Received &&
+            !m.IsSent &&
             m.Method == "window/workDoneProgress/create");
 
         var messages = harness.Log.GetFiltered(method: "window/workDoneProgress/create");
         Assert.Single(messages);
-        Assert.Equal(MessageDirection.Received, messages[0].Direction);
-        Assert.Equal(MessageType.Request, messages[0].MessageType);
+        Assert.False(messages[0].IsSent);
+        Assert.True(messages[0].IsRequest);
     }
 
     [Fact]
@@ -166,7 +165,7 @@ public class SessionLogTests
 
         Assert.Equal(MessageStatus.Error, messages[0].Status);
         Assert.Equal(MessageStatus.Error, messages[1].Status);
-        Assert.True(messages[1].Json?.ValueKind == JsonValueKind.Object);
+        Assert.True(messages[1].Body?.ValueKind == JsonValueKind.Object);
     }
 
     [Fact]
@@ -199,8 +198,8 @@ public class SessionLogTests
         await harness.SendRequestAsync("initialize");
         await harness.SendNotificationAsync("initialized");
 
-        var sent = harness.Log.GetFiltered(direction: MessageDirection.Sent);
-        var received = harness.Log.GetFiltered(direction: MessageDirection.Received);
+        var sent = harness.Log.GetFiltered(isSent: true);
+        var received = harness.Log.GetFiltered(isSent: false);
 
         Assert.Equal(2, sent.Count);
         Assert.Single(received);

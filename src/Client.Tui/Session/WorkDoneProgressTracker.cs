@@ -1,7 +1,6 @@
 using System.Text.Json;
-using ManualLspClient.Core.Transport;
 
-namespace ManualLspClient.Core.Session;
+namespace Lspeek.Tui.Session;
 
 /// <summary>
 /// State of a single work-done progress item.
@@ -48,14 +47,14 @@ public class WorkDoneProgressTracker
     public void OnMessageAdded(SessionMessage message)
     {
         if (message.Method == "window/workDoneProgress/create"
-            && message.Direction == MessageDirection.Received
-            && message.MessageType == MessageType.Request)
+            && !message.IsSent
+            && message.IsRequest)
         {
             HandleCreate(message);
         }
         else if (message.Method == "$/progress"
-            && message.Direction == MessageDirection.Received
-            && message.MessageType == MessageType.Notification)
+            && !message.IsSent
+            && message.IsNotification)
         {
             HandleProgress(message);
         }
@@ -95,7 +94,7 @@ public class WorkDoneProgressTracker
 
     private void HandleCreate(SessionMessage message)
     {
-        var token = ExtractToken(message.Json);
+        var token = ExtractToken(message.Body);
         if (token is null) return;
 
         lock (_lock)
@@ -110,9 +109,9 @@ public class WorkDoneProgressTracker
 
     private void HandleProgress(SessionMessage message)
     {
-        if (!message.Json.HasValue) return;
+        if (!message.Body.HasValue) return;
 
-        var json = message.Json.Value;
+        var json = message.Body.Value;
         var token = ExtractProgressToken(json);
         if (token is null) return;
 

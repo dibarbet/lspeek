@@ -1,6 +1,6 @@
 using Spectre.Console;
 
-namespace ManualLspClient.Tui.Interactive.Framework;
+namespace Lspeek.Tui.Interactive.Framework;
 
 /// <summary>
 /// Provides terminal-aware rendering helpers for views.

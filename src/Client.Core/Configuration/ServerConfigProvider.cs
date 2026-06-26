@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
-namespace ManualLspClient.Core.Configuration;
+namespace Lspeek.Core.Configuration;
 
 /// <summary>
 /// Loads server configurations from embedded defaults and optional user config file.

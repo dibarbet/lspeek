@@ -1,4 +1,4 @@
-namespace ManualLspClient.Backend.Hosting;
+namespace Lspeek.Backend.Hosting;
 
 /// <summary>
 /// Thrown when an action that requires a live LSP server is attempted while none is running.

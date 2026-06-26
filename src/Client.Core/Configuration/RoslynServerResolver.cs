@@ -1,7 +1,7 @@
 using System.Text.Json;
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Core.Configuration;
+namespace Lspeek.Core.Configuration;
 
 /// <summary>
 /// Resolves a locally-built Roslyn language server (<c>Microsoft.CodeAnalysis.LanguageServer.dll</c>)

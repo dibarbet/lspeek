@@ -1,9 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration.E2E;
+namespace Lspeek.Tests.Integration.E2E;
 
 /// <summary>
 /// Shared setup for the full end-to-end tests. These drive the <em>real</em> <c>lspeek-http</c>

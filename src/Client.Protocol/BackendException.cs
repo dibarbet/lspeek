@@ -1,4 +1,4 @@
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>
 /// Raised when the backend process cannot be launched, fails to signal readiness, or

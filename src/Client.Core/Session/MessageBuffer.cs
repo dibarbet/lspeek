@@ -1,7 +1,7 @@
 using System.Text.Json;
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Core.Session;
+namespace Lspeek.Core.Session;
 
 /// <summary>
 /// Thread-safe, seq-numbered ring buffer of <see cref="LspMessageRecord"/> with filtered

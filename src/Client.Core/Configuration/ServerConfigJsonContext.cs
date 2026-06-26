@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Core.Configuration;
+namespace Lspeek.Core.Configuration;
 
 /// <summary>
 /// Source-generated JSON metadata for <see cref="ServerConfig"/> so the backend can

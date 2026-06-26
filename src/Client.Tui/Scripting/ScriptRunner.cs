@@ -1,8 +1,8 @@
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ManualLspClient.Tui.Scripting;
+namespace Lspeek.Tui.Scripting;
 
 /// <summary>
 /// Executes a JSON script file against the backend, sending messages sequentially.

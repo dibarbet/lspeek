@@ -1,4 +1,4 @@
-namespace ManualLspClient.Tui.Interactive.Framework;
+namespace Lspeek.Tui.Interactive.Framework;
 
 /// <summary>
 /// Describes the result of handling a key press in a view.

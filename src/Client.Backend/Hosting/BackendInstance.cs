@@ -1,11 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using ManualLspClient.Core.Configuration;
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Protocol;
+using Lspeek.Core.Configuration;
+using Lspeek.Core.Session;
+using Lspeek.Core.Transport;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Backend.Hosting;
+namespace Lspeek.Backend.Hosting;
 
 /// <summary>
 /// Owns one LSP server's lifecycle for a single <c>instanceId</c>: resolves + spawns the

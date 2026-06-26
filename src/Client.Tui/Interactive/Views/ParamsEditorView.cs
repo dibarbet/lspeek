@@ -1,8 +1,8 @@
-using ManualLspClient.Core.MetaModel;
-using ManualLspClient.Tui.Interactive.Framework;
+using Lspeek.Tui.MetaModel;
+using Lspeek.Tui.Interactive.Framework;
 using Spectre.Console;
 
-namespace ManualLspClient.Tui.Interactive.Views;
+namespace Lspeek.Tui.Interactive.Views;
 
 /// <summary>
 /// Transition args for the params editor view.

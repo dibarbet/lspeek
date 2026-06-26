@@ -1,4 +1,4 @@
-namespace ManualLspClient.Core.Configuration;
+namespace Lspeek.Core.Configuration;
 
 /// <summary>
 /// Configuration for launching an LSP server.

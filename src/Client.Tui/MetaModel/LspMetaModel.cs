@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Core.MetaModel;
+namespace Lspeek.Tui.MetaModel;
 
 /// <summary>
 /// Deserialized LSP 3.18 metamodel types.

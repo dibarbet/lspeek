@@ -1,9 +1,9 @@
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
+using Lspeek.Tui.Presentation;
+using Lspeek.Tui.Session;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Tui.Scripting;
+namespace Lspeek.Tui.Scripting;
 
 /// <summary>
 /// Exports the full session log (all sent, received, stderr, and diagnostic messages)
@@ -53,18 +53,12 @@ public static class SessionLogExporter
         return new SessionLogEntry
         {
             Timestamp = msg.Timestamp,
-            Direction = msg.Direction == MessageDirection.Sent ? "sent" : "received",
-            MessageType = msg.MessageType switch
-            {
-                ManualLspClient.Core.Transport.MessageType.Request => "request",
-                ManualLspClient.Core.Transport.MessageType.Response => "response",
-                ManualLspClient.Core.Transport.MessageType.Notification => "notification",
-                _ => "unknown"
-            },
+            Direction = msg.IsSent ? "sent" : "received",
+            MessageType = msg.Kind,
             Method = msg.Method,
             Id = msg.Id,
-            Status = msg.GetStatusLabel().ToLowerInvariant(),
-            Body = msg.Json
+            Status = MessageStatusStyles.Label(msg.Status).ToLowerInvariant(),
+            Body = msg.Body
         };
     }
 }

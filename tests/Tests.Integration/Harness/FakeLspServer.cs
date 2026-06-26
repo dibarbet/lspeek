@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using StreamJsonRpc;
 
-namespace ManualLspClient.Tests.Integration.Harness;
+namespace Lspeek.Tests.Integration.Harness;
 
 /// <summary>
 /// A fake LSP server that communicates over StreamJsonRpc for integration testing.

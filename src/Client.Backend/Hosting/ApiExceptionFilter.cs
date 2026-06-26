@@ -1,6 +1,6 @@
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Backend.Hosting;
+namespace Lspeek.Backend.Hosting;
 
 /// <summary>
 /// Centralized error handling for the backend's <c>/api</c> surface. Registered once as an endpoint

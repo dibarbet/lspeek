@@ -24,6 +24,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Client.Core\Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Client.Protocol\Client.Protocol.csproj" />
+    <!-- The TUI session log (SessionLog / SessionMessage / progress tracker) is exercised by the harness. -->
+    <ProjectReference Include="..\..\src\Client.Tui\Client.Tui.csproj" />
     <!--
       Real reference: gives the E2E tests the MCP tool surface (LspTools / BackendSession) to drive.
       Client.Mcp also imports Bundle.Backend.targets, so building it builds lspeek-http too.

@@ -1,5 +1,5 @@
 using System.Text;
-using ManualLspClient.Tui.Commands;
+using Lspeek.Tui.Commands;
 using Spectre.Console.Cli;
 
 if (!Console.IsInputRedirected)

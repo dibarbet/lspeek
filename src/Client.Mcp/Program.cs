@@ -2,7 +2,7 @@
 // over stdio. Each tool drives this process's own private lspeek backend, which owns the LSP
 // server lifecycle and records all traffic. stdout is reserved for the MCP protocol; all logs
 // go to stderr.
-using ManualLspClient.Mcp;
+using Lspeek.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

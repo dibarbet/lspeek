@@ -1,9 +1,9 @@
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Tui.Interactive.Framework;
+using Lspeek.Tui.Presentation;
+using Lspeek.Tui.Session;
+using Lspeek.Tui.Interactive.Framework;
 using Spectre.Console;
 
-namespace ManualLspClient.Tui.Interactive.Views;
+namespace Lspeek.Tui.Interactive.Views;
 
 /// <summary>
 /// Collapsed session log view — shows one-line summaries of all messages
@@ -146,9 +146,9 @@ public class MessageListView : ITuiView
             }
             else
             {
-                var arrow = msg.Direction == MessageDirection.Sent ? "->" : "<-";
-                var statusLabel = msg.GetStatusLabel();
-                var statusColor = msg.GetStatusColor();
+                var arrow = msg.IsSent ? "->" : "<-";
+                var statusLabel = MessageStatusStyles.Label(msg.Status);
+                var statusColor = MessageStatusStyles.Color(msg.Status);
                 ctx.WritePaddedLine(
                     $"  {selector} [{highlight}]{time}  {arrow}  {Markup.Escape(msg.Method),-40}[/] [{statusColor}]{statusLabel}[/]");
             }

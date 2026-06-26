@@ -1,10 +1,10 @@
 using System.Text.Json.Nodes;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Tests.Integration.Harness;
+using Lspeek.Core.Transport;
+using Lspeek.Tests.Integration.Harness;
 using Nerdbank.Streams;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration;
+namespace Lspeek.Tests.Integration;
 
 /// <summary>
 /// Unit tests for <see cref="RawLspConnection"/> — the hand-rolled Content-Length JSON-RPC

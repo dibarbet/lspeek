@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>Options controlling how <see cref="BackendClient"/> spawns and talks to a backend.</summary>
 public sealed class BackendClientOptions

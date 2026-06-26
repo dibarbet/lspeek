@@ -1,7 +1,7 @@
-using ManualLspClient.Core.Session;
+using Lspeek.Tui.Session;
 using Spectre.Console;
 
-namespace ManualLspClient.Tui.Interactive.Framework;
+namespace Lspeek.Tui.Interactive.Framework;
 
 /// <summary>
 /// Main TUI application host. Manages the view stack, renders standard chrome

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>
 /// Shared JSON serialization options for the backend wire protocol.

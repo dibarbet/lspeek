@@ -1,9 +1,10 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Reflection;
-using ManualLspClient.Core.Transport;
+using Lspeek.Protocol;
 using StreamJsonRpc;
 
-namespace ManualLspClient.Tests.Integration.Harness;
+namespace Lspeek.Tests.Integration.Harness;
 
 /// <summary>
 /// Wraps a StreamJsonRpc connection over LSP-framed stdio streams.
@@ -12,7 +13,9 @@ namespace ManualLspClient.Tests.Integration.Harness;
 /// <remarks>
 /// This is a test-only harness component. The production backend drives the server
 /// through <c>RawLspConnection</c> in Client.Core; this StreamJsonRpc-based wrapper
-/// exists solely to exercise the Core session log / progress wiring in integration tests.
+/// exists solely to exercise the session log / progress wiring in integration tests.
+/// It emits the same <see cref="LspMessageRecord"/> wire shape the backend buffers, so the
+/// TUI session log is exercised through its real ingestion path.
 /// </remarks>
 public class LspConnection : IAsyncDisposable
 {
@@ -23,11 +26,13 @@ public class LspConnection : IAsyncDisposable
     private readonly JsonRpc _rpc;
     private bool _disposed;
     private int _nextRequestId;
+    private long _seq;
 
     /// <summary>
-    /// Raised when any message is sent or received (for session logging).
+    /// Raised when any message is sent or received, shaped as the backend's wire record
+    /// (for session logging).
     /// </summary>
-    public event Action<MessageDirection, MessageType, string, int?, JsonElement?>? MessageTraced;
+    public event Action<LspMessageRecord>? MessageTraced;
 
     /// <summary>
     /// Raised when the JSON-RPC connection is lost.
@@ -85,13 +90,13 @@ public class LspConnection : IAsyncDisposable
     {
         var id = Interlocked.Increment(ref _nextRequestId);
         var paramsElement = CloneJsonElement(@params);
-        MessageTraced?.Invoke(MessageDirection.Sent, MessageType.Request, method, id, paramsElement);
+        Trace("send", "request", method, id, "params", paramsElement);
 
         try
         {
             var result = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(method, paramsElement, cancellationToken);
             var resultElement = CloneJsonElement(result);
-            MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, resultElement);
+            Trace("recv", "response", method, id, "result", resultElement);
             return resultElement ?? NullJsonElement;
         }
         catch (RemoteInvocationException ex)
@@ -102,7 +107,7 @@ public class LspConnection : IAsyncDisposable
                 message = ex.Message,
                 data = ex.ErrorData?.ToString()
             });
-            MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
+            Trace("recv", "response", method, id, "error", errorJson);
             return errorJson;
         }
         catch (Exception ex)
@@ -112,7 +117,7 @@ public class LspConnection : IAsyncDisposable
                 code = -1,
                 message = ex.Message
             });
-            MessageTraced?.Invoke(MessageDirection.Received, MessageType.Response, method, id, errorJson);
+            Trace("recv", "response", method, id, "error", errorJson);
             return errorJson;
         }
     }
@@ -122,15 +127,43 @@ public class LspConnection : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
 
         var paramsElement = CloneJsonElement(@params);
-        MessageTraced?.Invoke(MessageDirection.Sent, MessageType.Notification, method, null, paramsElement);
+        Trace("send", "notification", method, null, "params", paramsElement);
 
         return _rpc.NotifyWithParameterObjectAsync(method, paramsElement);
     }
 
-    private void HandleInboundMessage(MessageType messageType, string method, JsonElement? payload)
+    private void HandleInboundMessage(string kind, string method, JsonElement? payload)
     {
         var element = CloneJsonElement(payload);
-        MessageTraced?.Invoke(MessageDirection.Received, messageType, method, null, element);
+        Trace("recv", kind, method, null, "params", element);
+    }
+
+    /// <summary>
+    /// Emits a <see cref="LspMessageRecord"/> matching the backend wire shape. The inner object is
+    /// wrapped under <paramref name="bodyProperty"/> (<c>params</c>/<c>result</c>/<c>error</c>) so
+    /// the session log projects it exactly as it does for live backend traffic.
+    /// </summary>
+    private void Trace(string direction, string kind, string method, int? id, string bodyProperty, JsonElement? body)
+    {
+        MessageTraced?.Invoke(new LspMessageRecord
+        {
+            Seq = Interlocked.Increment(ref _seq),
+            Time = DateTimeOffset.UtcNow.ToString("O"),
+            Direction = direction,
+            Kind = kind,
+            Method = method,
+            Id = id is { } value ? JsonSerializer.SerializeToElement(value) : null,
+            Summary = method,
+            Payload = WrapBody(bodyProperty, body),
+        });
+    }
+
+    private static JsonElement WrapBody(string property, JsonElement? body)
+    {
+        var obj = new JsonObject();
+        if (body is { ValueKind: not JsonValueKind.Null } value)
+            obj[property] = JsonNode.Parse(value.GetRawText());
+        return JsonSerializer.SerializeToElement(obj);
     }
 
     private static JsonElement? CloneJsonElement(JsonElement? value)
@@ -142,7 +175,7 @@ public class LspConnection : IAsyncDisposable
     {
         public void Handle(JsonElement? @params)
         {
-            connection.HandleInboundMessage(MessageType.Notification, method, @params);
+            connection.HandleInboundMessage("notification", method, @params);
         }
     }
 
@@ -150,7 +183,7 @@ public class LspConnection : IAsyncDisposable
     {
         public object? Handle(JsonElement? @params)
         {
-            connection.HandleInboundMessage(MessageType.Request, method, @params);
+            connection.HandleInboundMessage("request", method, @params);
             return null;
         }
     }

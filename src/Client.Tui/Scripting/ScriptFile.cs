@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Tui.Scripting;
+namespace Lspeek.Tui.Scripting;
 
 /// <summary>
 /// Represents a single entry in a JSON script file.

@@ -4,8 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.Channels;
-using ManualLspClient.Backend.Hosting;
-using ManualLspClient.Protocol;
+using Lspeek.Backend.Hosting;
+using Lspeek.Protocol;
 using Microsoft.AspNetCore.Http.Json;
 
 // ── command line ───────────────────────────────────────────────────────────
