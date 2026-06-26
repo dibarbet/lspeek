@@ -9,7 +9,6 @@ namespace ManualLspClient.Tui.Interactive.Framework;
 public class RenderContext
 {
     public int TermWidth { get; }
-    public int TermHeight { get; }
 
     /// <summary>
     /// Number of content lines available between header and footer.
@@ -25,7 +24,6 @@ public class RenderContext
     public RenderContext(int termWidth, int termHeight)
     {
         TermWidth = termWidth;
-        TermHeight = termHeight;
         AvailableLines = Math.Max(5, termHeight - HeaderLines - FooterLines - 2);
     }
 
@@ -46,16 +44,6 @@ public class RenderContext
     {
         int pad = Math.Max(0, TermWidth - estimatedVisibleLen);
         AnsiConsole.MarkupLine($"{markup}{new string(' ', pad)}");
-    }
-
-    /// <summary>
-    /// Truncates a string to maxWidth characters to prevent terminal line wrapping.
-    /// </summary>
-    public static string TruncateLine(string line, int maxWidth)
-    {
-        if (maxWidth <= 0) return "";
-        if (line.Length <= maxWidth) return line;
-        return line[..(maxWidth - 1)] + "…";
     }
 
     /// <summary>

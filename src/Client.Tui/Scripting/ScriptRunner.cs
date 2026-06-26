@@ -16,15 +16,6 @@ public class ScriptRunner
         _client = client;
     }
 
-    public Task RunAsync(string scriptPath, CancellationToken cancellationToken = default)
-    {
-        if (!File.Exists(scriptPath))
-            throw new FileNotFoundException($"Script file not found: {scriptPath}");
-
-        var script = ScriptFile.Load(scriptPath);
-        return RunAsync(script, scriptPath, cancellationToken);
-    }
-
     public async Task RunAsync(ScriptFile script, string scriptPath, CancellationToken cancellationToken = default)
     {
         Console.Error.WriteLine($"Running script: {scriptPath} ({script.Entries.Count} entries)");

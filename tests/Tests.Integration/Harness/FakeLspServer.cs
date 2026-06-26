@@ -97,6 +97,16 @@ public sealed class FakeLspServer : IAsyncDisposable
     }
 
     /// <summary>
+    /// Raised whenever a client→server notification is received, after it has been recorded.
+    /// Lets a host (e.g. the out-of-process fake server) react — for example, emit a
+    /// <c>window/logMessage</c> once the client sends <c>initialized</c>.
+    /// </summary>
+    public event Action<string, JsonElement?>? NotificationReceived;
+
+    /// <summary>Completes when the underlying JSON-RPC connection ends (stream closed / disposed).</summary>
+    public Task Completion => _rpc.Completion;
+
+    /// <summary>
     /// Sends a notification from the server to the client.
     /// </summary>
     public Task SendNotificationAsync(string method, object? @params = null)
@@ -124,6 +134,9 @@ public sealed class FakeLspServer : IAsyncDisposable
     {
         _receivedMessages.Enqueue((method, @params?.Clone()));
     }
+
+    private void RaiseNotification(string method, JsonElement? @params)
+        => NotificationReceived?.Invoke(method, @params?.Clone());
 
     public async ValueTask DisposeAsync()
     {
@@ -160,6 +173,7 @@ public sealed class FakeLspServer : IAsyncDisposable
         public void Handle(JsonElement? @params)
         {
             server.RecordMessage(method, @params);
+            server.RaiseNotification(method, @params);
         }
     }
 
@@ -168,6 +182,7 @@ public sealed class FakeLspServer : IAsyncDisposable
         public void Handle()
         {
             server.RecordMessage(method, null);
+            server.RaiseNotification(method, null);
         }
     }
 

@@ -16,7 +16,6 @@ public class MethodPickerView : ITuiView
     private readonly TuiStore _store;
     private readonly List<PickerRow> _rows = [];
     private readonly List<int> _selectableIndices = [];
-    private readonly HashSet<string> _notificationMethods;
 
     private int _cursor;
     private readonly StringBuilder _customInput = new();
@@ -24,9 +23,6 @@ public class MethodPickerView : ITuiView
     public MethodPickerView(TuiStore store)
     {
         _store = store;
-        _notificationMethods = store.MetaModel.GetClientNotifications()
-            .Select(n => n.Method)
-            .ToHashSet(StringComparer.Ordinal);
         BuildPickerRows();
     }
 

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A tiny out-of-process LSP server used only by the E2E integration tests. The real backend
+    (lspeek-http) spawns this as a child "language server" so the full backend / MCP path can be
+    driven against a deterministic, fast fake instead of a real Roslyn build. It reuses the same
+    FakeLspServer harness class (linked below) the in-memory tests use, hosting it over stdin/stdout.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>lspeek-fake-lsp</AssemblyName>
+    <RootNamespace>ManualLspClient.Tests.FakeLspServerHost</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nerdbank.Streams" Version="*" />
+    <PackageReference Include="StreamJsonRpc" Version="2.24.84" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reuse the exact FakeLspServer the in-memory tests use, hosted over stdio here. -->
+    <Compile Include="..\Tests.Integration\Harness\FakeLspServer.cs" Link="FakeLspServer.cs" />
+  </ItemGroup>
+
+</Project>

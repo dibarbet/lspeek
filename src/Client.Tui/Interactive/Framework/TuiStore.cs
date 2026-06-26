@@ -50,7 +50,7 @@ public class TuiStore
         MetaModel = metaModel;
         ServerName = serverName;
 
-        // Wire local session log → progress tracker (same as the in-process LspSession did).
+        // Wire local session log → progress tracker.
         _log.MessageAdded += _progress.OnMessageAdded;
 
         if (initialStatus is not null)
@@ -360,18 +360,6 @@ public class TuiStore
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Clamp selected index to valid range given current message count.
-    /// </summary>
-    public void ClampSelectedIndex()
-    {
-        var count = MessageCount;
-        if (SelectedIndex < 0 || SelectedIndex >= count)
-            SelectedIndex = count - 1;
-
-        _lastObservedMessageCount = count;
     }
 
     /// <summary>

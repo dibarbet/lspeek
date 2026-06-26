@@ -27,9 +27,6 @@ public sealed class BackendClientOptions
     /// <summary>How long to wait for the readiness handshake before failing.</summary>
     public TimeSpan StartupTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
-    /// <summary>Optional sink for non-handshake backend stdout lines.</summary>
-    public Action<string>? OnStdout { get; set; }
-
     /// <summary>Optional sink for backend stderr lines.</summary>
     public Action<string>? OnStderr { get; set; }
 }
@@ -71,12 +68,6 @@ public sealed class BackendClient : IAsyncDisposable
 
     /// <summary>The backend's base URL once <see cref="StartAsync"/> has completed.</summary>
     public string BaseUrl => _baseUrl ?? throw new InvalidOperationException("Backend not started.");
-
-    /// <summary>The spawned backend's process id, if running.</summary>
-    public int? ProcessId => _process is { HasExited: false } p ? p.Id : null;
-
-    /// <summary>Raised when the backend process exits.</summary>
-    public event Action<int>? ProcessExited;
 
     // ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -121,8 +112,6 @@ public sealed class BackendClient : IAsyncDisposable
                 return;
             if (e.Data.StartsWith(HandshakePrefix, StringComparison.Ordinal))
                 ready.TrySetResult(e.Data[HandshakePrefix.Length..].Trim());
-            else
-                _options.OnStdout?.Invoke(e.Data);
         };
         process.ErrorDataReceived += (_, e) =>
         {
@@ -139,7 +128,6 @@ public sealed class BackendClient : IAsyncDisposable
                 captured = stderr.ToString();
             ready.TrySetException(new BackendException(
                 $"Backend exited (code {SafeExitCode(process)}) before signaling readiness.\n{captured}"));
-            ProcessExited?.Invoke(SafeExitCode(process) ?? -1);
         };
 
         if (!process.Start())

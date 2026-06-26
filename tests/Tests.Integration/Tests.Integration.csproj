@@ -24,6 +24,21 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Client.Core\Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Client.Protocol\Client.Protocol.csproj" />
+    <!--
+      Real reference: gives the E2E tests the MCP tool surface (LspTools / BackendSession) to drive.
+      Client.Mcp also imports Bundle.Backend.targets, so building it builds lspeek-http too.
+    -->
+    <ProjectReference Include="..\..\src\Client.Mcp\Client.Mcp.csproj" />
+    <!--
+      Build-only references (ReferenceOutputAssembly=false): we don't link these assemblies, we just
+      need their build outputs on disk for the E2E fixture to spawn. Client.Backend produces the
+      lspeek-http host the BackendClient launches (via LSPEEK_HTTP); FakeLspServer.Host produces the
+      lspeek-fake-lsp "language server" the backend is pointed at.
+    -->
+    <ProjectReference Include="..\..\src\Client.Backend\Client.Backend.csproj"
+                      ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\FakeLspServer.Host\FakeLspServer.Host.csproj"
+                      ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
 </Project>
