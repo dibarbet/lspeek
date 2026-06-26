@@ -237,4 +237,52 @@ public class RawLspConnectionTests
         var observed = await seen.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal("window/logMessage", observed.Method);
     }
+
+    [Fact]
+    public async Task ResponseToRequest_CarriesOriginatingMethod_InMethodAndSummary()
+    {
+        var (conn, server, _, _) = Connect();
+        await using var _conn = conn;
+
+        var seen = new TaskCompletionSource<ObservedMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.MessageObserved += m =>
+        {
+            if (m is { Direction: "recv", Kind: "response" })
+                seen.TrySetResult(m);
+        };
+
+        var reqTask = conn.SendRequestAsync("textDocument/hover", null);
+        var frame = await server.ReadObjectAsync();
+        server.WriteFrame(Response(frame, new JsonObject { ["contents"] = "hi" }));
+        await reqTask;
+
+        var response = await seen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // The response itself has no method on the wire, so it must inherit the request's method
+        // to be tied back to it in the UI.
+        Assert.Equal("textDocument/hover", response.Method);
+        Assert.Contains("textDocument/hover", response.Summary);
+        Assert.StartsWith("response:", response.Summary);
+    }
+
+    [Fact]
+    public async Task ResponseWithoutPendingRequest_HasNullMethod_AndBareSummary()
+    {
+        var (conn, server, _, _) = Connect();
+        await using var _conn = conn;
+
+        var seen = new TaskCompletionSource<ObservedMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        conn.MessageObserved += m =>
+        {
+            if (m is { Direction: "recv", Kind: "response" })
+                seen.TrySetResult(m);
+        };
+
+        // A response whose id was never registered (no matching request) keeps the old behavior.
+        server.WriteFrame(JsonNode.Parse("""{"jsonrpc":"2.0","id":"ghost-1","result":{"ok":true}}""")!);
+
+        var response = await seen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Null(response.Method);
+        Assert.StartsWith("response (id", response.Summary);
+        Assert.Contains("ghost-1", response.Summary);
+    }
 }

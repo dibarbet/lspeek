@@ -245,13 +245,20 @@ public sealed class RawLspConnection : IAsyncDisposable
         if (idNode is not null && hasResultOrError && methodNode is null)
         {
             var idElement = ToElement(idNode);
+            // A JSON-RPC response carries no method of its own, so recover the originating
+            // request's method from the pending entry to tie the response back to its request.
+            string? requestMethod = null;
             if (_pending.TryRemove(IdKey(idNode), out var pending))
             {
+                requestMethod = string.IsNullOrEmpty(pending.Method) ? null : pending.Method;
                 pending.Complete(ToElement(msg)!.Value);
             }
             var isError = msg.ContainsKey("error");
-            Emit("recv", "response", null, idElement,
-                isError ? $"error response (id {idNode})" : $"response (id {idNode})", ToElement(msg));
+            var label = isError ? "error response" : "response";
+            var summary = requestMethod is null
+                ? $"{label} (id {idNode})"
+                : $"{label}: {requestMethod} (id {idNode})";
+            Emit("recv", "response", requestMethod, idElement, summary, ToElement(msg));
             return;
         }
 
@@ -297,7 +304,7 @@ public sealed class RawLspConnection : IAsyncDisposable
 
     private PendingRequest RegisterPending(string idKey, string method, int timeoutMs)
     {
-        var pending = new PendingRequest();
+        var pending = new PendingRequest { Method = method };
         _pending[idKey] = pending;
         if (timeoutMs > 0)
         {
@@ -439,6 +446,9 @@ public sealed class RawLspConnection : IAsyncDisposable
         private readonly TaskCompletionSource<JsonElement> _tcs =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private Action? _onSettled;
+
+        /// <summary>Method of the request this entry awaits a response for; used to label the response.</summary>
+        public string? Method { get; init; }
 
         public Task<JsonElement> Task => _tcs.Task;
 

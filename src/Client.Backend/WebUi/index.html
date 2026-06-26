@@ -157,6 +157,14 @@ function passesAll(m) {
 
 function dirGlyph(d) { return d === "send" ? "▶" : d === "recv" ? "◀" : "•"; }
 
+function rowLabel(m) {
+  // Responses carry the originating request's method (set by the backend) so they can be tied
+  // back to the request. Show "<method>  (id …)" when known; otherwise fall back to the summary.
+  if (m.kind === "response" && m.method)
+    return m.method + (m.id !== undefined ? "  (id " + JSON.stringify(m.id) + ")" : "");
+  return m.method || m.summary || "";
+}
+
 function makeRow(m) {
   const tr = document.createElement("tr");
   tr.className = "k-" + (m.kind || "");
@@ -166,7 +174,7 @@ function makeRow(m) {
     '<td class="time">' + (m.time ? m.time.slice(11, 23) : "") + '</td>' +
     '<td class="dir ' + m.direction + '">' + dirGlyph(m.direction) + '</td>' +
     '<td class="kind ' + (m.kind || "") + '">' + (m.kind || "") + '</td>' +
-    '<td class="sum">' + escapeHtml(m.method || m.summary || "") + '</td>';
+    '<td class="sum">' + escapeHtml(rowLabel(m)) + '</td>';
   tr.addEventListener("click", () => select(m.seq));
   return tr;
 }

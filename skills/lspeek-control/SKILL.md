@@ -236,6 +236,7 @@ server→client requests) is captured in the buffer. Read it with:
 - `wait_for_message { method | containsText, timeoutMs }` — block for a specific event.
 
 Each record has `{ seq, time, direction(send|recv|meta), kind(request|response|notification|error|stderr|info|batch), method, id, summary, payload }`.
+A `response` record's `method` is the originating request's method (recovered by id), so responses can be tied back to their request and filtered by `methodContains`.
 
 ## Manual / exploratory sending
 
