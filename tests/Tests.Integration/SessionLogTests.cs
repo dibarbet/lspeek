@@ -229,6 +229,10 @@ public class SessionLogTests
         await harness.SendRequestAsync("initialize");
         await harness.SendNotificationAsync("initialized");
 
+        // The "initialized" notification has no response to await, so wait until the server
+        // has actually recorded it before asserting (avoids a race on slower machines).
+        await harness.Server.WaitForReceivedMessageAsync("initialized");
+
         var received = harness.Server.GetReceivedMessages();
         Assert.Equal(2, received.Count);
         Assert.Equal("initialize", received[0].Method);

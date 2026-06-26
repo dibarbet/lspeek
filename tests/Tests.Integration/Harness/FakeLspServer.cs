@@ -103,6 +103,11 @@ public sealed class FakeLspServer : IAsyncDisposable
     /// </summary>
     public event Action<string, JsonElement?>? NotificationReceived;
 
+    /// <summary>
+    /// Raised whenever any client→server message (request or notification) has been recorded.
+    /// </summary>
+    private event Action<string>? MessageRecorded;
+
     /// <summary>Completes when the underlying JSON-RPC connection ends (stream closed / disposed).</summary>
     public Task Completion => _rpc.Completion;
 
@@ -130,9 +135,51 @@ public sealed class FakeLspServer : IAsyncDisposable
         return [.. _receivedMessages];
     }
 
+    /// <summary>
+    /// Waits until the server has recorded at least <paramref name="count"/> received messages
+    /// for the given <paramref name="method"/>. Notifications (unlike requests) have no response
+    /// for the client to await, so the server may not have processed them by the time the client's
+    /// send call returns; this lets a test deterministically wait for that processing.
+    /// </summary>
+    public async Task WaitForReceivedMessageAsync(
+        string method,
+        int count = 1,
+        TimeSpan? timeout = null,
+        CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(5));
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        bool Satisfied() => _receivedMessages.Count(m => m.Method == method) >= count;
+
+        void OnRecorded(string _)
+        {
+            if (Satisfied())
+                tcs.TrySetResult();
+        }
+
+        MessageRecorded += OnRecorded;
+        try
+        {
+            // Re-check after subscribing to avoid missing a message recorded before the handler attached.
+            if (Satisfied())
+                return;
+
+            await using var reg = cts.Token.Register(() => tcs.TrySetCanceled(cts.Token));
+            await tcs.Task;
+        }
+        finally
+        {
+            MessageRecorded -= OnRecorded;
+        }
+    }
+
     private void RecordMessage(string method, JsonElement? @params)
     {
         _receivedMessages.Enqueue((method, @params?.Clone()));
+        MessageRecorded?.Invoke(method);
     }
 
     private void RaiseNotification(string method, JsonElement? @params)
