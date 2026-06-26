@@ -6,13 +6,12 @@
 // serves the web UI, and exposes an HTTP + SSE API. This module just spawns that backend as
 // a private child process and proxies HTTP requests to it.
 //
-// Discovery: steps 1-3 mirror src/Client.Protocol/BackendLauncher.cs; step 4 is canvas-specific.
-//   1. LSPEEK_HTTP env var (a file, or a directory containing the host)
-//   2. a bundled backend next to this extension (the extension dir, then a "backend" subfolder)
-//   3. in-repo dev build (src/Client.Backend/bin/<config>/<tfm>/lspeek-http[.exe|.dll])
-//   4. `dotnet dnx lspeek-http` — acquire the published tool from NuGet (no local build needed)
+// Discovery: prefer an in-repo dev build, then fall back to `dotnet dnx`.
+//   1. in-repo dev build (src/Client.Backend/bin/<config>/<tfm>/lspeek-http[.exe|.dll])
+//   2. `dotnet dnx lspeek-http` — acquire the published tool from NuGet (no local build needed)
 //
-// Step 4 is what lets the canvas run off-repo. The .NET tools (lspeek, lspeek-mcp) bundle the
+// The dev-build step mirrors src/Client.Protocol/BackendLauncher.cs; the dnx step is canvas-specific.
+// Step 2 is what lets the canvas run off-repo. The .NET tools (lspeek, lspeek-mcp) bundle the
 // backend beside them, so BackendLauncher.cs has no dnx step; this JS extension can't bundle a
 // .NET app, so it falls back to dnx, which needs the .NET SDK on PATH but no prior build/install
 // (dnx downloads + caches the lspeek-http tool on first use, then launches it).
@@ -25,11 +24,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const EXECUTABLE_NAME = "lspeek-http";
-const ENV_VAR = "LSPEEK_HTTP";
 const HANDSHAKE_PREFIX = "LSPEEK_HTTP_URL=";
 const HANDSHAKE_TIMEOUT_MS = 30000;
 
-// `dotnet dnx` fallback (step 4): NuGet package id + env overrides + a longer handshake budget,
+// `dotnet dnx` fallback (step 2): NuGet package id + env overrides + a longer handshake budget,
 // since a cold first-run download from NuGet can take much longer than a local launch.
 const DNX_PACKAGE_ID = "lspeek-http";
 const DNX_VERSION_ENV = "LSPEEK_HTTP_VERSION";
@@ -46,22 +44,6 @@ const extensionDir = path.dirname(fileURLToPath(import.meta.url));
  * and run the published tool. timeoutMs overrides the handshake budget for the slow dnx path.
  */
 function resolveLaunch() {
-    const configured = process.env[ENV_VAR];
-    if (configured && configured.trim()) {
-        const value = configured.trim();
-        if (isDirectory(value)) {
-            const fromDir = hostInDirectory(value);
-            if (fromDir) return fromDir;
-        }
-        if (existsSync(value)) return asLaunch(value);
-        throw new Error(`Configured ${ENV_VAR} '${value}' was not found.`);
-    }
-
-    // A packaged extension ships the backend beside it (the extension dir, or a "backend" subfolder).
-    const bundled = hostInDirectory(extensionDir)
-        ?? hostInDirectory(path.join(extensionDir, "backend"));
-    if (bundled) return bundled;
-
     const repoRoot = findRepoRoot(extensionDir);
     if (repoRoot) {
         const fromDev = scanDevBuild(path.join(repoRoot, "src", "Client.Backend", "bin"));
@@ -107,12 +89,6 @@ function hostInDirectory(dir) {
     const dll = path.join(dir, `${EXECUTABLE_NAME}.dll`);
     if (existsSync(dll)) return { command: "dotnet", args: ["exec", dll] };
     return null;
-}
-
-function asLaunch(file) {
-    return file.toLowerCase().endsWith(".dll")
-        ? { command: "dotnet", args: ["exec", file] }
-        : { command: file, args: [] };
 }
 
 function findRepoRoot(start) {
