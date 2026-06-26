@@ -327,7 +327,7 @@ public sealed class BackendInstance : IAsyncDisposable
         lock (_sync)
         {
             if (_connection is null || _status != "running")
-                throw new InvalidOperationException("Server is not running. Call start_server first.");
+                throw new ServerNotRunningException();
             return _connection;
         }
     }

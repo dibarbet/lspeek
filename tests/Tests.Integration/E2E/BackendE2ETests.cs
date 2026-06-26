@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using ManualLspClient.Protocol;
 using Xunit;
@@ -154,6 +156,24 @@ public sealed class BackendE2ETests(BackendE2EFixture fx)
     }
 
     [Fact]
+    public async Task ErrorResponses_MapExceptionTypeToStatusCode()
+    {
+        await using var client = new BackendClient();
+        await client.StartAsync();
+        using var http = new HttpClient { BaseAddress = new Uri(client.BaseUrl) };
+
+        // Acting on a server that is not running is a state conflict → 409, with the shared envelope.
+        using var notRunning = await http.PostAsync("/api/request", JsonContent("""{ "method": "initialize" }"""));
+        Assert.Equal(HttpStatusCode.Conflict, notRunning.StatusCode);
+        var body = await notRunning.Content.ReadAsStringAsync();
+        Assert.Contains("not running", body, StringComparison.OrdinalIgnoreCase);
+
+        // Missing both 'server' and 'serverPath'/'repoRoot' is bad input → 400.
+        using var badStart = await http.PostAsync("/api/start", JsonContent("{}"));
+        Assert.Equal(HttpStatusCode.BadRequest, badStart.StatusCode);
+    }
+
+    [Fact]
     public async Task StreamEvents_Emits_Status_And_Message_Events()
     {
         await using var client = new BackendClient();
@@ -202,6 +222,8 @@ public sealed class BackendE2ETests(BackendE2EFixture fx)
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
     }
+
+    private static StringContent JsonContent(string json) => new(json, Encoding.UTF8, "application/json");
 
     private static async Task<bool> PollAsync(Func<Task<bool>> predicate, int timeoutMs = 5000, int intervalMs = 100)
     {
