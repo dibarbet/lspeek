@@ -3,20 +3,20 @@ using System.Runtime.InteropServices;
 namespace ManualLspClient.Protocol;
 
 /// <summary>
-/// Locates the bundled <c>lspeek-backend</c> so a frontend can spawn its own private backend
+/// Locates the bundled <c>lspeek-http</c> so a frontend can spawn its own private backend
 /// instance. Every .NET frontend always ships the backend in a <c>backend/</c> folder beside
 /// itself (see <c>src/Bundle.Backend.targets</c>): packaged, self-contained tools bundle the
 /// self-contained (ReadyToRun) backend executable, while the in-repo build output bundles the
-/// framework-dependent backend dll (run via <c>dotnet exec</c>). The <c>LSPEEK_BACKEND</c>
+/// framework-dependent backend dll (run via <c>dotnet exec</c>). The <c>LSPEEK_HTTP</c>
 /// environment variable overrides this for advanced/local scenarios.
 /// </summary>
 public static class BackendLauncher
 {
     /// <summary>Base name of the backend executable (no extension).</summary>
-    public const string ExecutableName = "lspeek-backend";
+    public const string ExecutableName = "lspeek-http";
 
     /// <summary>Environment variable that overrides backend discovery (file or directory).</summary>
-    public const string EnvironmentVariable = "LSPEEK_BACKEND";
+    public const string EnvironmentVariable = "LSPEEK_HTTP";
 
     /// <summary>Subdirectory (next to the frontend) where packaged tools bundle the backend.</summary>
     public const string BundledSubdirectory = "backend";

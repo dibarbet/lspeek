@@ -47,13 +47,13 @@ public sealed record BackendEvent(string Event, string Data)
 }
 
 /// <summary>
-/// Spawns and drives a private <c>lspeek-backend</c> process over its loopback HTTP+SSE API.
+/// Spawns and drives a private <c>lspeek-http</c> process over its loopback HTTP+SSE API.
 /// One typed method per backend endpoint, plus <see cref="StreamEventsAsync"/> for live
 /// status/message events. Shared by the TUI and MCP frontends.
 /// </summary>
 public sealed class BackendClient : IAsyncDisposable
 {
-    private const string HandshakePrefix = "LSPEEK_BACKEND_URL=";
+    private const string HandshakePrefix = "LSPEEK_HTTP_URL=";
 
     private readonly BackendClientOptions _options;
     private readonly string _instanceQuery;

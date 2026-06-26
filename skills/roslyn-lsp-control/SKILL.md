@@ -9,7 +9,7 @@ This skill explains how to interactively drive a **live Roslyn language server**
 `Microsoft.CodeAnalysis.LanguageServer` host that powers the C# Dev Kit / VS Code C# extension)
 built from any local repo or worktree.
 
-In this repo (`lspeek`) a single **backend** (`lspeek-backend`) owns the server lifecycle: it
+In this repo (`lspeek`) a single **backend** (`lspeek-http`) owns the server lifecycle: it
 spawns `dotnet <Microsoft.CodeAnalysis.LanguageServer.dll> --stdio`, speaks the LSP wire protocol,
 buffers **every** frame in both directions, auto-answers infrastructure requests, and records the
 server's logs / `$/progress` / diagnostics for you to read back. You never talk to the server
@@ -30,18 +30,18 @@ result envelopes are the same.
 
 ## Prerequisites
 
-- **A backend the frontend can spawn.** The frontends locate and spawn `lspeek-backend`. Installed
+- **A backend the frontend can spawn.** The frontends locate and spawn `lspeek-http`. Installed
   tools (`dotnet tool install --global lspeek` / `lspeek-mcp`) are **self-contained and
   platform-specific** (published for the full RID set: win/linux/osx, x64/arm64, glibc/musl) and
   **bundle a self-contained copy of the backend**, so nothing extra is needed — no .NET runtime, no
   separate download. When working from the repo, build once with `dotnet build lspeek.slnx`; each
   frontend then finds the backend in a `backend/` folder beside its own build output, and the
   **canvas** auto-discovers the in-repo backend build directly. The canvas can also run fully
-  off-repo: with no local build it falls back to `dotnet dnx lspeek-backend`, which fetches the
+  off-repo: with no local build it falls back to `dotnet dnx lspeek-http`, which fetches the
   published backend tool from NuGet (cached after the first run), so it just needs the .NET SDK on
-  PATH. You can always point any frontend at a specific host with the `LSPEEK_BACKEND` environment
+  PATH. You can always point any frontend at a specific host with the `LSPEEK_HTTP` environment
   variable (a host file or a directory containing it); for the canvas's dnx path,
-  `LSPEEK_BACKEND_VERSION` pins an exact version and `LSPEEK_BACKEND_PRERELEASE=1` allows
+  `LSPEEK_HTTP_VERSION` pins an exact version and `LSPEEK_HTTP_PRERELEASE=1` allows
   prereleases. The backend bundled in `lspeek`/`lspeek-mcp` and the one acquired via dnx are the same
   **self-contained, trimmed, ReadyToRun (R2R)** build for the matching RID (no separate .NET runtime
   needed); R2R cross-compiles, so all RIDs (win/linux/osx, x64/arm64, glibc/musl) are built on one runner.

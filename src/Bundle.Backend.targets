@@ -1,13 +1,13 @@
 <Project>
 
   <!--
-    Bundles lspeek-backend next to a frontend (TUI / MCP) so an installed tool can spawn it
+    Bundles lspeek-http next to a frontend (TUI / MCP) so an installed tool can spawn it
     off-repo without a separate .NET runtime. The frontends ship for many RIDs (win/linux/osx,
     x64/arm64, glibc/musl), so the *bundled* backend is a self-contained, trimmed, ReadyToRun (R2R)
     build that, like the frontend itself, cross-compiles to any RID from any OS - letting a single
     `dotnet pack` produce every RID payload on one runner (no per-OS native-toolchain matrix; this is
     why the backend uses R2R rather than native AOT, which can't cross-compile). The bundled copy is
-    the same build as the standalone lspeek-backend tool. The in-repo build output instead bundles the
+    the same build as the standalone lspeek-http tool. The in-repo build output instead bundles the
     backend's managed, framework-dependent build output for fast local run/smoke.
 
       * _CopyBackendToOutput  - (local dev, no RID) copies the backend's managed build output into
@@ -75,7 +75,7 @@
     self-contained, trimmed, ReadyToRun build (SelfContained=true, PublishReadyToRun=true,
     PublishTrimmed=true) so it cross-compiles to any RID from any OS - the frontends ship for
     osx/arm64/musl too, and R2R (unlike native AOT) needs no per-OS native-toolchain matrix. It is the
-    same build as the standalone lspeek-backend tool. Only runs for RID-specific payload packs; the
+    same build as the standalone lspeek-http tool. Only runs for RID-specific payload packs; the
     no-RID manifest pack carries no implementation, so it bundles nothing.
 
     No explicit Restore here on purpose: the SDK packs the frontend RIDs in parallel (BuildInParallel

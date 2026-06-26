@@ -52,7 +52,7 @@
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
-  <!-- Bundle lspeek-backend so the installed tool can spawn it off-repo. -->
+  <!-- Bundle lspeek-http so the installed tool can spawn it off-repo. -->
   <Import Project="..\Bundle.Backend.targets" />
 
 </Project>

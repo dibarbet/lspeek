@@ -6,16 +6,16 @@
     <Nullable>enable</Nullable>
     <RootNamespace>ManualLspClient.Backend</RootNamespace>
     <OutputType>Exe</OutputType>
-    <AssemblyName>lspeek-backend</AssemblyName>
+    <AssemblyName>lspeek-http</AssemblyName>
     <!--
       Pack the backend as a `dnx`-launchable .NET tool so frontends that can't bundle it
-      (the JS canvas extension) can acquire it from NuGet with `dotnet dnx lspeek-backend`
+      (the JS canvas extension) can acquire it from NuGet with `dotnet dnx lspeek-http`
       instead of relying on a local repo build. The web UI is an EmbeddedResource compiled
-      into lspeek-backend.dll, so the tool package is fully self-describing.
+      into lspeek-http.dll, so the tool package is fully self-describing.
     -->
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>lspeek-backend</ToolCommandName>
-    <PackageId>lspeek-backend</PackageId>
+    <ToolCommandName>lspeek-http</ToolCommandName>
+    <PackageId>lspeek-http</PackageId>
     <IsPackable>true</IsPackable>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -26,7 +26,7 @@
       runner, so the SDK auto-produces every per-RID payload from one ordinary pack - no per-OS
       native-toolchain matrix and no two-step flow:
         * `dotnet pack`  -> routing manifest + one self-contained R2R payload per RID, all on one runner.
-      `dnx`/`dotnet tool install lspeek-backend` reads the manifest and fetches the matching RID
+      `dnx`/`dotnet tool install lspeek-http` reads the manifest and fetches the matching RID
       payload, so the canvas keeps acquiring one universal id with no change.
 
       ToolPackageRuntimeIdentifiers (rather than RuntimeIdentifiers) scopes the per-RID self-contained

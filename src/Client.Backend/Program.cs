@@ -209,7 +209,7 @@ var boundUrl = app.Urls.FirstOrDefault() ?? $"http://127.0.0.1:{port}";
 if (!boundUrl.EndsWith('/'))
     boundUrl += "/";
 // Handshake line consumed by the spawning frontend to discover the backend URL.
-Console.Out.WriteLine($"LSPEEK_BACKEND_URL={boundUrl}");
+Console.Out.WriteLine($"LSPEEK_HTTP_URL={boundUrl}");
 Console.Out.Flush();
 
 if (watchStdin)

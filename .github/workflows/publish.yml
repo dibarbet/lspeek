@@ -19,7 +19,7 @@ permissions:
 # runner emits each tool's manifest + all 8 RID payloads, with no per-OS native toolchain:
 #   * Frontends (lspeek, lspeek-mcp) bundle a self-contained R2R copy of the backend for the matching
 #     RID, so they cover the full RID set (win/linux/osx, x64/arm64, glibc/musl) from one job.
-#   * The standalone backend (lspeek-backend, used by the canvas's `dotnet dnx lspeek-backend` path)
+#   * The standalone backend (lspeek-http, used by the canvas's `dotnet dnx lspeek-http` path)
 #     ships the same self-contained R2R build for every RID, additionally trimmed.
 jobs:
   # All packages build on one ubuntu runner with no native toolchain (R2R cross-compiles): the
@@ -48,7 +48,7 @@ jobs:
       - name: Pack lspeek-mcp — manifest + all RID payloads
         run: dotnet pack src/Client.Mcp/Client.Mcp.csproj --configuration Release --output ${{ github.workspace }}/artifacts/packages --nologo
 
-      - name: Pack lspeek-backend — manifest + all RID payloads
+      - name: Pack lspeek-http — manifest + all RID payloads
         run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release --output ${{ github.workspace }}/artifacts/packages --nologo
 
       - name: Upload packages

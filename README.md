@@ -23,14 +23,14 @@ flowchart LR
     TUI["lspeek (TUI)"] -->|HTTP + SSE| BE
     MCP["lspeek-mcp (MCP)"] -->|HTTP + SSE| BE
     CANVAS["roslyn-lsp-tester (canvas)"] -->|HTTP + SSE| BE
-    BE["lspeek-backend<br/>(HTTP+SSE host)"] -->|stdio JSON-RPC| LSP["language server<br/>(e.g. Roslyn)"]
+    BE["lspeek-http<br/>(HTTP+SSE host)"] -->|stdio JSON-RPC| LSP["language server<br/>(e.g. Roslyn)"]
 ```
 
 | Component | Project | What it is |
 | --- | --- | --- |
 | Core library | `src/Client.Core` | Reusable LSP session library: raw Content-Length JSON-RPC client, seq-numbered message buffer, server-config + Roslyn build resolution, LSP metamodel. |
 | Shared contracts | `src/Client.Protocol` | Wire DTOs + the C# `BackendClient` (spawns the backend, typed HTTP methods, SSE consumer). |
-| Backend host | `src/Client.Backend` | The `lspeek-backend` exe: a minimal-API HTTP+SSE host that owns the server lifecycle and serves the web UI. |
+| Backend host | `src/Client.Backend` | The `lspeek-http` exe: a minimal-API HTTP+SSE host that owns the server lifecycle and serves the web UI. |
 | TUI | `src/Client.Tui` | The `lspeek` dotnet tool. |
 | MCP server | `src/Client.Mcp` | The `lspeek-mcp` stdio server; one tool per backend action. |
 | Canvas | `.github/extensions/roslyn-lsp-tester` | Thin JS client that spawns the backend and proxies actions; the backend serves its UI. |
@@ -82,23 +82,23 @@ linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64**. To run without installin
 dotnet build lspeek.slnx
 ```
 
-This builds the backend (`lspeek-backend`) alongside the frontends. The TUI, MCP, and canvas
+This builds the backend (`lspeek-http`) alongside the frontends. The TUI, MCP, and canvas
 **discover and spawn** the backend automatically. The .NET frontends (TUI, MCP) look, in order, for:
 
-1. the `LSPEEK_BACKEND` environment variable, if set (a host file, or a directory containing it), then
+1. the `LSPEEK_HTTP` environment variable, if set (a host file, or a directory containing it), then
 2. a bundled `backend/` subdirectory beside the frontend (`AppContext.BaseDirectory/backend/`).
 
 Packaged tools ship a **self-contained** copy of the backend in that `backend/` folder — a
 platform-specific apphost run directly; a local `dotnet build` copies the backend's **managed** build
 output there instead (run via `dotnet exec`). Either way the same `backend/` probe finds it.
 
-The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_BACKEND` override and in-repo
-dev build, then falls back to **`dotnet dnx lspeek-backend`** — fetching the published backend tool from
+The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_HTTP` override and in-repo
+dev build, then falls back to **`dotnet dnx lspeek-http`** — fetching the published backend tool from
 NuGet (a self-contained, ReadyToRun, platform-specific build for every supported RID; cached after first
 run) so it works off-repo with only the .NET SDK installed. See
 [the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
 
-Set `LSPEEK_BACKEND` to override discovery — e.g. point every frontend at one freshly built backend
+Set `LSPEEK_HTTP` to override discovery — e.g. point every frontend at one freshly built backend
 while iterating on it.
 
 ## TUI (`lspeek`)
@@ -148,11 +148,11 @@ Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
 ### Running off-repo (no local build)
 
 The canvas is two small JS files — it can't bundle the .NET backend the way the packaged tools do.
-Instead, when it can't find a local backend (no `LSPEEK_BACKEND`, no in-repo build) it runs
-**`dotnet dnx lspeek-backend`**, which downloads the published backend tool from NuGet on first use,
+Instead, when it can't find a local backend (no `LSPEEK_HTTP`, no in-repo build) it runs
+**`dotnet dnx lspeek-http`**, which downloads the published backend tool from NuGet on first use,
 caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides `dnx`).
 
-The backend ships as its own [`lspeek-backend`](https://www.nuget.org/packages/lspeek-backend) tool,
+The backend ships as its own [`lspeek-http`](https://www.nuget.org/packages/lspeek-http) tool,
 published as a **self-contained, ReadyToRun (R2R), platform-specific** build for every supported RID
 (win/linux/osx, x64/arm64, glibc/musl) — a self-contained executable that bundles the .NET runtime, so
 the backend needs **no .NET runtime of its own**. R2R cross-compiles, so all RID payloads are built on a
@@ -163,9 +163,9 @@ Optional environment overrides (read by the canvas):
 
 | Variable | Effect |
 |---|---|
-| `LSPEEK_BACKEND` | Use a specific backend host file or directory instead of dnx (e.g. a local build). |
-| `LSPEEK_BACKEND_VERSION` | Pin the dnx tool to an exact version (e.g. `1.0.42`) instead of the latest stable. |
-| `LSPEEK_BACKEND_PRERELEASE` | Set to `1`/`true` to let dnx float to the latest **prerelease** version. |
+| `LSPEEK_HTTP` | Use a specific backend host file or directory instead of dnx (e.g. a local build). |
+| `LSPEEK_HTTP_VERSION` | Pin the dnx tool to an exact version (e.g. `1.0.42`) instead of the latest stable. |
+| `LSPEEK_HTTP_PRERELEASE` | Set to `1`/`true` to let dnx float to the latest **prerelease** version. |
 
 ## Built-in Servers
 
@@ -226,7 +226,7 @@ Each entry supports:
 src/
   Client.Core/        LSP session library (raw transport, message buffer, server resolution)
   Client.Protocol/    shared DTOs + C# BackendClient
-  Client.Backend/     lspeek-backend: HTTP+SSE host (owns the server, serves the UI)
+  Client.Backend/     lspeek-http: HTTP+SSE host (owns the server, serves the UI)
   Client.Tui/         lspeek: terminal UI
   Client.Mcp/         lspeek-mcp: MCP stdio server
 .github/extensions/
