@@ -1,14 +1,14 @@
-using ManualLspClient.Core.Configuration;
-using ManualLspClient.Core.MetaModel;
-using ManualLspClient.Protocol;
-using ManualLspClient.Tui.Interactive.Framework;
-using ManualLspClient.Tui.Interactive.Views;
-using ManualLspClient.Tui.Scripting;
+using Lspeek.Core.Configuration;
+using Lspeek.Tui.MetaModel;
+using Lspeek.Protocol;
+using Lspeek.Tui.Interactive.Framework;
+using Lspeek.Tui.Interactive.Views;
+using Lspeek.Tui.Scripting;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
-namespace ManualLspClient.Tui.Commands;
+namespace Lspeek.Tui.Commands;
 
 public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
 {

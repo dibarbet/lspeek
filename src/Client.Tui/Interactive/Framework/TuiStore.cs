@@ -1,11 +1,10 @@
-using ManualLspClient.Core.MetaModel;
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Protocol;
-using ManualLspClient.Tui.Scripting;
+using Lspeek.Tui.MetaModel;
+using Lspeek.Tui.Session;
+using Lspeek.Protocol;
+using Lspeek.Tui.Scripting;
 using System.Text.Json;
 
-namespace ManualLspClient.Tui.Interactive.Framework;
+namespace Lspeek.Tui.Interactive.Framework;
 
 /// <summary>
 /// Shared state container for the TUI. Drives a private <see cref="BackendClient"/> (which owns
@@ -276,10 +275,7 @@ public class TuiStore
             return;
         _maxSeq = record.Seq;
 
-        if (BackendMessageMapper.IsStderr(record))
-            _log.AddStderrLine(BackendMessageMapper.GetStderrText(record));
-        else
-            _log.Add(BackendMessageMapper.ToSessionMessage(record));
+        _log.AddRecord(record);
     }
 
     private void ApplyStatus(ServerStatus status)
@@ -345,17 +341,17 @@ public class TuiStore
     {
         if (!msg.Id.HasValue) return null;
 
-        var targetType = msg.MessageType == MessageType.Request
-            ? MessageType.Response
-            : msg.MessageType == MessageType.Response
-                ? MessageType.Request
-                : (MessageType?)null;
+        var targetKind = msg.IsRequest
+            ? "response"
+            : msg.IsResponse
+                ? "request"
+                : null;
 
-        if (targetType is null) return null;
+        if (targetKind is null) return null;
 
         for (int i = 0; i < messages.Count; i++)
         {
-            if (messages[i].MessageType == targetType && messages[i].Id == msg.Id)
+            if (messages[i].Kind == targetKind && messages[i].Id == msg.Id)
                 return i;
         }
 

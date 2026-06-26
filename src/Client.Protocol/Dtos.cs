@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>
 /// A single buffered LSP traffic record, shaped to match the canvas extension's record:

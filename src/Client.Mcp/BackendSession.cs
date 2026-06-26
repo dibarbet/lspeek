@@ -1,6 +1,6 @@
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Mcp;
+namespace Lspeek.Mcp;
 
 /// <summary>
 /// Owns this MCP process's single private backend instance. The backend (and thus the LSP

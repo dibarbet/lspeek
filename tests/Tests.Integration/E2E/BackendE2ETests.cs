@@ -1,10 +1,10 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration.E2E;
+namespace Lspeek.Tests.Integration.E2E;
 
 /// <summary>
 /// Full end-to-end tests for the backend driven through <see cref="BackendClient"/> — the exact

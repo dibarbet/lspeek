@@ -1,4 +1,4 @@
-namespace ManualLspClient.Tui.Interactive.Framework;
+namespace Lspeek.Tui.Interactive.Framework;
 
 /// <summary>
 /// A hint shown in the footer bar describing a hotkey and its action.

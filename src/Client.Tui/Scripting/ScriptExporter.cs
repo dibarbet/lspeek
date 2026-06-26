@@ -1,9 +1,8 @@
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
+using Lspeek.Tui.Session;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ManualLspClient.Tui.Scripting;
+namespace Lspeek.Tui.Scripting;
 
 /// <summary>
 /// Exports sent messages from a session log as a replayable JSON script file.
@@ -18,9 +17,9 @@ public static class ScriptExporter
             .Where(msg => !msg.IsStderr)
             .Select(msg => new ScriptEntry
         {
-            Type = msg.MessageType == MessageType.Notification ? "notification" : "request",
+            Type = msg.IsNotification ? "notification" : "request",
             Method = msg.Method,
-            Params = NormalizeParams(msg.Method, msg.Json)
+            Params = NormalizeParams(msg.Method, msg.Body)
         }).ToList();
 
         var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions

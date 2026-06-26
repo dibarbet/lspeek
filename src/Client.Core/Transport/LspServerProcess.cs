@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace ManualLspClient.Core.Transport;
+namespace Lspeek.Core.Transport;
 
 /// <summary>
 /// Manages the lifecycle of an LSP server process.

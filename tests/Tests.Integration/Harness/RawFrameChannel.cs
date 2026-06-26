@@ -1,11 +1,11 @@
 using System.Text;
 using System.Text.Json.Nodes;
 
-namespace ManualLspClient.Tests.Integration.Harness;
+namespace Lspeek.Tests.Integration.Harness;
 
 /// <summary>
 /// Test-side helper that speaks Content-Length framed JSON-RPC over a raw stream, used to
-/// stand in for the "server" end of a <see cref="ManualLspClient.Core.Transport.RawLspConnection"/>.
+/// stand in for the "server" end of a <see cref="Lspeek.Core.Transport.RawLspConnection"/>.
 /// Lets a test read the exact frames the connection wrote and inject server frames back.
 /// </summary>
 public sealed class RawFrameChannel

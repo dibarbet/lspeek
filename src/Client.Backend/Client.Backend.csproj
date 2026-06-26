@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>ManualLspClient.Backend</RootNamespace>
+    <RootNamespace>Lspeek.Backend</RootNamespace>
     <OutputType>Exe</OutputType>
     <AssemblyName>lspeek-http</AssemblyName>
     <!--

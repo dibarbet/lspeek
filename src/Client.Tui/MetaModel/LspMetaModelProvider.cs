@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
-namespace ManualLspClient.Core.MetaModel;
+namespace Lspeek.Tui.MetaModel;
 
 /// <summary>
 /// Loads and queries the LSP 3.18 metamodel.

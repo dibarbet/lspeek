@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ManualLspClient.Core.Transport;
+namespace Lspeek.Core.Transport;
 
 /// <summary>
 /// An observed JSON-RPC frame in either direction. Mirrors the canvas client's record shape:

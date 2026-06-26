@@ -1,9 +1,9 @@
-using ManualLspClient.Core.MetaModel;
-using ManualLspClient.Tui.Interactive.Framework;
+using Lspeek.Tui.MetaModel;
+using Lspeek.Tui.Interactive.Framework;
 using Spectre.Console;
 using System.Text;
 
-namespace ManualLspClient.Tui.Interactive.Views;
+namespace Lspeek.Tui.Interactive.Views;
 
 /// <summary>
 /// Custom key-driven method picker view. Displays categorized LSP methods

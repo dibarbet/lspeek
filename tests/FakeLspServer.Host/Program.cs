@@ -1,4 +1,4 @@
-using ManualLspClient.Tests.Integration.Harness;
+using Lspeek.Tests.Integration.Harness;
 using Nerdbank.Streams;
 
 // Out-of-process fake LSP server for the E2E integration tests. The real lspeek-http backend

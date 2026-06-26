@@ -1,9 +1,9 @@
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
-using ManualLspClient.Tui.Interactive.Framework;
+using Lspeek.Tui.Presentation;
+using Lspeek.Tui.Session;
+using Lspeek.Tui.Interactive.Framework;
 using Spectre.Console;
 
-namespace ManualLspClient.Tui.Interactive.Views;
+namespace Lspeek.Tui.Interactive.Views;
 
 /// <summary>
 /// Expanded view of a single session message, showing metadata and scrollable JSON body.
@@ -94,9 +94,9 @@ public class MessageDetailView : ITuiView
                 if (_messageIndex < messages.Count)
                 {
                     var msg = messages[_messageIndex];
-                    if (msg.MessageType == MessageType.Request && msg.Direction == MessageDirection.Sent)
+                    if (msg.IsRequest && msg.IsSent)
                     {
-                        var paramsJson = msg.Json.HasValue ? msg.GetFormattedJson() : null;
+                        var paramsJson = msg.Body.HasValue ? msg.GetFormattedJson() : null;
                         return Task.FromResult<Navigation>(
                             new Navigation.Push(typeof(ParamsEditorView),
                                 new ParamsEditorArgs(msg.Method, IsCustom: false, ExistingParams: paramsJson)));
@@ -134,11 +134,11 @@ public class MessageDetailView : ITuiView
 
             if (matchIndex.HasValue)
             {
-                var matchLabel = msg.MessageType == MessageType.Request ? "Go to Response" : "Go to Request";
+                var matchLabel = msg.IsRequest ? "Go to Response" : "Go to Request";
                 hints.Add(new("M", matchLabel));
             }
 
-            if (msg.MessageType == MessageType.Request && msg.Direction == MessageDirection.Sent)
+            if (msg.IsRequest && msg.IsSent)
             {
                 hints.Add(new("R", "Resend"));
             }
@@ -155,25 +155,25 @@ public class MessageDetailView : ITuiView
         int linesRendered = 0;
         var contentWidth = Math.Max(1, ctx.TermWidth - 2);
 
-        var arrow = msg.Direction == MessageDirection.Sent ? "Sent" : "Received";
-        var typeLabel = msg.MessageType.ToString();
+        var arrow = msg.IsSent ? "Sent" : "Received";
+        var typeLabel = char.ToUpperInvariant(msg.Kind[0]) + msg.Kind[1..];
         var time = msg.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
-        var statusColor = msg.GetStatusColor();
+        var statusColor = MessageStatusStyles.Color(msg.Status);
 
         ctx.WritePaddedLine($"  [bold]Message Details[/]  [dim](index {_messageIndex})[/]");
         linesRendered++;
         ctx.WritePaddedLine($"[grey]{new string('─', ctx.TermWidth - 1)}[/]");
         linesRendered++;
 
-        ctx.WritePaddedLine($"  [bold]Time:[/] {time}  [bold]Direction:[/] {arrow}  [bold]Type:[/] {typeLabel}  [bold]Status:[/] [{statusColor}]{msg.GetStatusLabel()}[/]");
+        ctx.WritePaddedLine($"  [bold]Time:[/] {time}  [bold]Direction:[/] {arrow}  [bold]Type:[/] {typeLabel}  [bold]Status:[/] [{statusColor}]{MessageStatusStyles.Label(msg.Status)}[/]");
         linesRendered++;
         var idLabel = msg.Id.HasValue ? $"  [bold]Id:[/] {msg.Id.Value}" : "";
         ctx.WritePaddedLine($"  [bold]Method:[/] {Markup.Escape(msg.Method)}{idLabel}");
         linesRendered++;
 
-        if (msg.Json.HasValue)
+        if (msg.Body.HasValue)
         {
-            var label = msg.MessageType == MessageType.Response ? "Result" : "Params";
+            var label = msg.IsResponse ? "Result" : "Params";
             var formatted = msg.GetFormattedJson();
             var allLines = GetWrappedLines(formatted.ReplaceLineEndings("\n").Split('\n'), contentWidth);
             var jsonAvailable = Math.Max(3, ctx.AvailableLines - linesRendered - 1);
@@ -256,7 +256,7 @@ public class MessageDetailView : ITuiView
         string? text = null;
         if (msg.IsStderr)
             text = string.Join('\n', msg.StderrLines);
-        else if (msg.Json.HasValue)
+        else if (msg.Body.HasValue)
             text = msg.GetFormattedJson();
 
         if (text is not null)

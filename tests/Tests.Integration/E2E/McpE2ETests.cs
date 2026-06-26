@@ -1,8 +1,8 @@
 using System.Text.Json;
-using ManualLspClient.Mcp;
+using Lspeek.Mcp;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration.E2E;
+namespace Lspeek.Tests.Integration.E2E;
 
 /// <summary>
 /// Full end-to-end tests for the MCP tool surface. These call the real <see cref="LspTools"/>

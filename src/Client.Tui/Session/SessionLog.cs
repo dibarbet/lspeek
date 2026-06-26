@@ -1,6 +1,7 @@
-using ManualLspClient.Core.Transport;
+using System.Text.Json;
+using Lspeek.Protocol;
 
-namespace ManualLspClient.Core.Session;
+namespace Lspeek.Tui.Session;
 
 /// <summary>
 /// Thread-safe, append-only log of all messages in an LSP session.
@@ -17,6 +18,18 @@ public class SessionLog
     /// </summary>
     public event Action<SessionMessage>? MessageAdded;
 
+    /// <summary>
+    /// Single ingestion entry point for backend wire records. Stderr records are grouped into a
+    /// contiguous stderr entry; all other records are projected to a <see cref="SessionMessage"/>.
+    /// </summary>
+    public void AddRecord(LspMessageRecord record)
+    {
+        if (SessionMessage.IsStderrRecord(record))
+            AddStderrLine(SessionMessage.GetStderrText(record));
+        else
+            Add(SessionMessage.FromRecord(record));
+    }
+
     public void Add(SessionMessage message)
     {
         lock (_lock)
@@ -25,10 +38,10 @@ public class SessionLog
             message.Status = ComputeStatus(message);
 
             // If this is a response, mark the corresponding request as OK/Error
-            if (message.MessageType == MessageType.Response && message.Id.HasValue)
+            if (message.IsResponse && message.Id.HasValue)
             {
                 var request = _messages.LastOrDefault(m =>
-                    m.MessageType == MessageType.Request &&
+                    m.IsRequest &&
                     m.Id == message.Id &&
                     m.Status == MessageStatus.Pending);
                 if (request is not null)
@@ -59,8 +72,8 @@ public class SessionLog
 
             var stderrMessage = new SessionMessage
             {
-                Direction = MessageDirection.Received,
-                MessageType = MessageType.Stderr,
+                IsSent = false,
+                Kind = "stderr",
                 Method = "stderr",
                 Status = MessageStatus.Stderr,
             };
@@ -78,19 +91,19 @@ public class SessionLog
     }
 
     public IReadOnlyList<SessionMessage> GetFiltered(
-        MessageDirection? direction = null,
-        MessageType? messageType = null,
+        bool? isSent = null,
+        string? kind = null,
         string? method = null)
     {
         lock (_lock)
         {
             IEnumerable<SessionMessage> query = _messages;
 
-            if (direction.HasValue)
-                query = query.Where(m => m.Direction == direction.Value);
+            if (isSent.HasValue)
+                query = query.Where(m => m.IsSent == isSent.Value);
 
-            if (messageType.HasValue)
-                query = query.Where(m => m.MessageType == messageType.Value);
+            if (kind is not null)
+                query = query.Where(m => m.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase));
 
             if (method is not null)
                 query = query.Where(m => m.Method.Equals(method, StringComparison.OrdinalIgnoreCase));
@@ -104,7 +117,7 @@ public class SessionLog
     /// </summary>
     public IReadOnlyList<SessionMessage> GetSentMessages()
     {
-        return GetFiltered(direction: MessageDirection.Sent);
+        return GetFiltered(isSent: true);
     }
 
     public int Count
@@ -120,45 +133,41 @@ public class SessionLog
 
     private static MessageStatus ComputeStatus(SessionMessage message)
     {
-        if (message.MessageType == MessageType.Request)
+        if (message.IsRequest)
         {
-            if (message.Direction == MessageDirection.Sent)
+            if (message.IsSent)
                 return MessageStatus.Pending;
 
             // Server→client request
             return MessageStatus.Info;
         }
 
-        if (message.MessageType == MessageType.Response)
+        if (message.IsResponse)
         {
             // Check if the response contains an error
-            if (message.Json.HasValue)
+            if (message.Body is { ValueKind: JsonValueKind.Object } body &&
+                body.TryGetProperty("code", out _))
             {
-                var json = message.Json.Value;
-                if (json.ValueKind == System.Text.Json.JsonValueKind.Object &&
-                    json.TryGetProperty("code", out _))
-                {
-                    return MessageStatus.Error;
-                }
+                return MessageStatus.Error;
             }
             return MessageStatus.Ok;
         }
 
-        if (message.MessageType == MessageType.Notification)
+        if (message.IsNotification)
         {
-            if (message.Direction == MessageDirection.Sent)
+            if (message.IsSent)
                 return MessageStatus.Sent;
 
             // Server notifications — classify by method and severity
             if (message.Method == "textDocument/publishDiagnostics")
                 return MessageStatus.Warn;
 
-            // Map window/logMessage and window/showMessage by MessageType severity
+            // Map window/logMessage and window/showMessage by LSP MessageType severity
             if (message.Method is "window/logMessage" or "window/showMessage")
             {
-                if (message.Json.HasValue && message.Json.Value.ValueKind == System.Text.Json.JsonValueKind.Object
-                    && message.Json.Value.TryGetProperty("type", out var typeProp)
-                    && typeProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                if (message.Body is { ValueKind: JsonValueKind.Object } body
+                    && body.TryGetProperty("type", out var typeProp)
+                    && typeProp.ValueKind == JsonValueKind.Number)
                 {
                     // LSP MessageType: 1=Error, 2=Warning, 3=Info, 4=Log
                     return typeProp.GetInt32() switch

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace ManualLspClient.Backend.Hosting;
+namespace Lspeek.Backend.Hosting;
 
 /// <summary>
 /// Tracks <see cref="BackendInstance"/>s keyed by <c>instanceId</c>. A single backend process

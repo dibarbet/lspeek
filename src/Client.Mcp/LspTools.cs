@@ -1,9 +1,9 @@
 using System.ComponentModel;
 using System.Text.Json;
-using ManualLspClient.Protocol;
+using Lspeek.Protocol;
 using ModelContextProtocol.Server;
 
-namespace ManualLspClient.Mcp;
+namespace Lspeek.Mcp;
 
 /// <summary>
 /// MCP tools that drive a live LSP server through this process's private backend. One tool per

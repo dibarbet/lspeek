@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ManualLspClient.Core.MetaModel;
+namespace Lspeek.Tui.MetaModel;
 
 /// <summary>
 /// Generates JSON templates for LSP request/notification params based on the metamodel.

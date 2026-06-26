@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>
 /// System.Text.Json source-generation context for every backend wire DTO.

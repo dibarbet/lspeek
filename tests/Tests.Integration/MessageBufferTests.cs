@@ -1,9 +1,9 @@
 using System.Text.Json;
-using ManualLspClient.Core.Session;
-using ManualLspClient.Protocol;
+using Lspeek.Core.Session;
+using Lspeek.Protocol;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration;
+namespace Lspeek.Tests.Integration;
 
 /// <summary>
 /// Tests for <see cref="MessageBuffer"/> — the seq-numbered traffic buffer that backs the

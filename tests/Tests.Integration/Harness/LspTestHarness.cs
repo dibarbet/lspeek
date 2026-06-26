@@ -1,9 +1,8 @@
 using System.Text.Json;
-using ManualLspClient.Core.Session;
-using ManualLspClient.Core.Transport;
+using Lspeek.Tui.Session;
 using Nerdbank.Streams;
 
-namespace ManualLspClient.Tests.Integration.Harness;
+namespace Lspeek.Tests.Integration.Harness;
 
 /// <summary>
 /// Integration test harness that wires a real LspConnection + SessionLog to a FakeLspServer
@@ -30,18 +29,8 @@ public sealed class LspTestHarness : IAsyncDisposable
         _clientStream = clientStream;
         _serverStream = serverStream;
 
-        // Wire connection events → session log (same as LspSession constructor)
-        Connection.MessageTraced += (direction, msgType, method, id, json) =>
-        {
-            Log.Add(new SessionMessage
-            {
-                Direction = direction,
-                MessageType = msgType,
-                Method = method,
-                Id = id,
-                Json = json
-            });
-        };
+        // Wire connection events → session log (same ingestion path as the backend SSE stream)
+        Connection.MessageTraced += record => Log.AddRecord(record);
 
         Log.MessageAdded += ProgressTracker.OnMessageAdded;
 
@@ -49,11 +38,10 @@ public sealed class LspTestHarness : IAsyncDisposable
         {
             Log.Add(new SessionMessage
             {
-                Direction = MessageDirection.Received,
-                MessageType = MessageType.Notification,
+                IsSent = false,
+                Kind = "notification",
                 Method = "$/connection.disconnected",
-                Json = JsonSerializer.SerializeToElement(new { reason }),
-                Status = MessageStatus.Error
+                Body = JsonSerializer.SerializeToElement(new { reason })
             });
         };
     }

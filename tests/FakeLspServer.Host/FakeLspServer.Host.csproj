@@ -12,7 +12,7 @@
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <AssemblyName>lspeek-fake-lsp</AssemblyName>
-    <RootNamespace>ManualLspClient.Tests.FakeLspServerHost</RootNamespace>
+    <RootNamespace>Lspeek.Tests.FakeLspServerHost</RootNamespace>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 

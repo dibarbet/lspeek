@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace ManualLspClient.Tests.Integration;
+namespace Lspeek.Tests.Integration;
 
 /// <summary>
 /// Guards the unified action surface: the canvas extension (JS) and the MCP server (C#) must

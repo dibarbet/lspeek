@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace ManualLspClient.Protocol;
+namespace Lspeek.Protocol;
 
 /// <summary>
 /// Locates the bundled <c>lspeek-http</c> so a frontend can spawn its own private backend
