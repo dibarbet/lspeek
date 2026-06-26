@@ -1,13 +1,19 @@
 using System.Text.Json;
 using System.Reflection;
+using ManualLspClient.Core.Transport;
 using StreamJsonRpc;
 
-namespace ManualLspClient.Core.Transport;
+namespace ManualLspClient.Tests.Integration.Harness;
 
 /// <summary>
 /// Wraps a StreamJsonRpc connection over LSP-framed stdio streams.
 /// Registers catch-all handlers for server-sent notifications and requests.
 /// </summary>
+/// <remarks>
+/// This is a test-only harness component. The production backend drives the server
+/// through <c>RawLspConnection</c> in Client.Core; this StreamJsonRpc-based wrapper
+/// exists solely to exercise the Core session log / progress wiring in integration tests.
+/// </remarks>
 public class LspConnection : IAsyncDisposable
 {
     private static readonly MethodInfo NotificationHandlerMethod = typeof(NotificationRpcHandler).GetMethod(nameof(NotificationRpcHandler.Handle))!;
@@ -186,18 +192,3 @@ public class LspConnection : IAsyncDisposable
         "workspace/semanticTokens/refresh",
     ];
 }
-
-public enum MessageDirection
-{
-    Sent,
-    Received
-}
-
-public enum MessageType
-{
-    Request,
-    Response,
-    Notification,
-    Stderr
-}
-

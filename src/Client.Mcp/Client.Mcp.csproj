@@ -1,30 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\Client.Core\Client.Core.csproj" />
-    <ProjectReference Include="..\Client.Protocol\Client.Protocol.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" Version="3.9.50" PrivateAssets="all" />
-    <PackageReference Include="Spectre.Console" Version="0.54.0" />
-    <PackageReference Include="Spectre.Console.Cli" Version="0.53.1" />
-    <PackageReference Include="TextCopy" Version="*" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="\" Link="LICENSE.txt" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
-  </ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>ManualLspClient.Mcp</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>lspeek-mcp</AssemblyName>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>lspeek</ToolCommandName>
-    <PackageId>lspeek</PackageId>
+    <ToolCommandName>lspeek-mcp</ToolCommandName>
+    <PackageId>lspeek-mcp</PackageId>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
@@ -51,6 +36,21 @@
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Client.Protocol\Client.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.9.50" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="\" Link="LICENSE.txt" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+  </ItemGroup>
 
   <!-- Bundle lspeek-http so the installed tool can spawn it off-repo. -->
   <Import Project="..\Bundle.Backend.targets" />

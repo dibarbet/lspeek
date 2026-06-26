@@ -14,13 +14,6 @@ public class ServerConfigProvider
 
     private static readonly string UserConfigPath = Path.Combine(UserConfigDirectory, "servers.json");
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
-    };
-
     private readonly Dictionary<string, ServerConfig> _servers = new(StringComparer.OrdinalIgnoreCase);
 
     private ServerConfigProvider() { }
@@ -60,7 +53,7 @@ public class ServerConfigProvider
     private static ServerConfig LoadFromFile(string filePath)
     {
         var json = File.ReadAllText(filePath);
-        var config = JsonSerializer.Deserialize<ServerConfig>(json, JsonOptions)
+        var config = JsonSerializer.Deserialize(json, ServerConfigJsonContext.Default.ServerConfig)
             ?? throw new InvalidOperationException($"Failed to deserialize server config from '{filePath}'.");
         if (string.IsNullOrEmpty(config.Name))
             config.Name = Path.GetFileNameWithoutExtension(filePath);
@@ -86,7 +79,7 @@ public class ServerConfigProvider
 
         foreach (var serverProperty in serversElement.EnumerateObject())
         {
-            var config = JsonSerializer.Deserialize<ServerConfig>(serverProperty.Value.GetRawText(), JsonOptions);
+            var config = JsonSerializer.Deserialize(serverProperty.Value.GetRawText(), ServerConfigJsonContext.Default.ServerConfig);
             if (config is not null)
             {
                 config.Name = serverProperty.Name;

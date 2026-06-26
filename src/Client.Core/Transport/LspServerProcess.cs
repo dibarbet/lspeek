@@ -17,6 +17,26 @@ public class LspServerProcess : IAsyncDisposable
     public int ProcessId => _process.Id;
     public bool HasExited => _process.HasExited;
 
+    /// <summary>The process exit code, or <c>null</c> if it is still running.</summary>
+    public int? ExitCode
+    {
+        get
+        {
+            try
+            {
+                return _process.HasExited ? _process.ExitCode : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>Wait for the process to exit (best-effort; returns immediately if already gone).</summary>
+    public Task WaitForExitAsync(CancellationToken cancellationToken = default)
+        => _process.HasExited ? Task.CompletedTask : _process.WaitForExitAsync(cancellationToken);
+
     /// <summary>
     /// Event raised when a line is written to the server's stderr.
     /// </summary>

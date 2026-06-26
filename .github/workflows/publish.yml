@@ -8,14 +8,25 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
+# Packaging model
+# ---------------
+# Every tool ships as a small routing MANIFEST package (project metadata only, OS-agnostic)
+# plus one self-contained per-RID PAYLOAD package. All payloads are ReadyToRun (R2R),
+# self-contained, platform-specific builds.
+#
+# R2R (crossgen2) cross-compiles to any OS/arch, so a single `dotnet pack` (no -r) on ONE ubuntu
+# runner emits each tool's manifest + all 8 RID payloads, with no per-OS native toolchain:
+#   * Frontends (lspeek, lspeek-mcp) bundle a self-contained R2R copy of the backend for the matching
+#     RID, so they cover the full RID set (win/linux/osx, x64/arm64, glibc/musl) from one job.
+#   * The standalone backend (lspeek-http, used by the canvas's `dotnet dnx lspeek-http` path)
+#     ships the same self-contained R2R build for every RID, additionally trimmed.
 jobs:
-  publish:
+  # All packages build on one ubuntu runner with no native toolchain (R2R cross-compiles): the
+  # frontends (manifest + all 8 self-contained R2R payloads each, bundling the R2R backend) and the
+  # standalone backend (manifest + all 8 self-contained R2R payloads).
+  pack:
     runs-on: ubuntu-latest
-    environment:
-      name: release
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -28,21 +39,76 @@ jobs:
           dotnet-version: 10.0.x
           dotnet-quality: preview
 
+      # One pack per project -> routing manifest + 8 self-contained R2R payloads. The SDK fans the
+      # RIDs out in parallel; the frontend payloads each bundle the R2R backend under
+      # tools/any/<rid>/backend/.
+      - name: Pack lspeek (TUI) — manifest + all RID payloads
+        run: dotnet pack src/Client.Tui/Client.Tui.csproj --configuration Release --output ${{ github.workspace }}/artifacts/packages --nologo
+
+      - name: Pack lspeek-mcp — manifest + all RID payloads
+        run: dotnet pack src/Client.Mcp/Client.Mcp.csproj --configuration Release --output ${{ github.workspace }}/artifacts/packages --nologo
+
+      - name: Pack lspeek-http — manifest + all RID payloads
+        run: dotnet pack src/Client.Backend/Client.Backend.csproj --configuration Release --output ${{ github.workspace }}/artifacts/packages --nologo
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+
+  publish:
+    needs: [pack]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten packages into one directory
+        run: |
+          mkdir -p _all
+          find artifacts -name '*.nupkg' -exec cp -n {} _all/ \;
+          ls -1 _all
+
       - name: NuGet login
         id: nuget-login
         uses: NuGet/login@v1
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      - name: Pack NuGet tool
-        run: dotnet pack src/Client.Tui/Client.Tui.csproj --configuration Release --output ${{ github.workspace }}/artifacts/nuget --nologo
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-package
-          path: artifacts/nuget/*.nupkg
-          if-no-files-found: error
-
-      - name: Publish to nuget.org
-        run: dotnet nuget push artifacts/nuget/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --skip-duplicate --force-english-output
+      # Push every RID-specific PAYLOAD (any filename with a RID token) FIRST, then the routing
+      # MANIFESTS (filenames with no RID token) LAST, so each manifest only goes live once every
+      # package it points at already exists. All packages share one deterministic version
+      # (Nerdbank.GitVersioning from the same checked-out commit).
+      - name: Push packages (payloads first, manifests last)
+        run: |
+          set -euo pipefail
+          cd _all
+          is_payload() {
+            case "$1" in
+              *.win-x64.*|*.win-arm64.*|*.linux-x64.*|*.linux-arm64.*|*.linux-musl-x64.*|*.linux-musl-arm64.*|*.osx-x64.*|*.osx-arm64.*) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+          push() {
+            dotnet nuget push "$1" \
+              --source https://api.nuget.org/v3/index.json \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate --force-english-output
+          }
+          for f in *.nupkg; do if is_payload "$f"; then echo "payload: $f"; push "$f"; fi; done
+          for f in *.nupkg; do if ! is_payload "$f"; then echo "manifest: $f"; push "$f"; fi; done

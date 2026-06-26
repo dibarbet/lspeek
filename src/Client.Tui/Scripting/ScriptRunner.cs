@@ -1,19 +1,19 @@
-using ManualLspClient.Core.Session;
+using ManualLspClient.Protocol;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace ManualLspClient.Tui.Scripting;
 
 /// <summary>
-/// Executes a JSON script file against an LSP session, sending messages sequentially.
+/// Executes a JSON script file against the backend, sending messages sequentially.
 /// </summary>
 public class ScriptRunner
 {
-    private readonly LspSession _session;
+    private readonly BackendClient _client;
 
-    public ScriptRunner(LspSession session)
+    public ScriptRunner(BackendClient client)
     {
-        _session = session;
+        _client = client;
     }
 
     public Task RunAsync(string scriptPath, CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ public class ScriptRunner
 
             if (entry.Type.Equals("notification", StringComparison.OrdinalIgnoreCase))
             {
-                await _session.SendNotificationAsync(entry.Method, normalizedParams, cancellationToken);
+                await _client.NotifyAsync(entry.Method, normalizedParams, cancellationToken);
 
                 // Print to stdout for piping
                 var output = new { method = entry.Method, type = "notification", status = "sent" };
@@ -45,14 +45,15 @@ public class ScriptRunner
             }
             else // "request" is the default
             {
-                var result = await _session.SendRequestAsync(entry.Method, normalizedParams, cancellationToken);
+                var response = await _client.RequestAsync(entry.Method, normalizedParams, timeoutMs: null, ct: cancellationToken);
+                var payload = response.Result ?? response.Error;
 
                 // Print response to stdout for piping
-                var output = new { method = entry.Method, type = "request", result };
+                var output = new { method = entry.Method, type = "request", result = payload };
                 Console.WriteLine(JsonSerializer.Serialize(output));
 
-                if (IsErrorResult(result, out var errorMessage))
-                    throw new InvalidOperationException($"Request '{entry.Method}' failed: {errorMessage}");
+                if (response.Error is { } error)
+                    throw new InvalidOperationException($"Request '{entry.Method}' failed: {ErrorMessage(error)}");
             }
         }
 
@@ -75,20 +76,15 @@ public class ScriptRunner
         return JsonSerializer.SerializeToElement(json);
     }
 
-    private static bool IsErrorResult(JsonElement result, out string errorMessage)
+    private static string ErrorMessage(JsonElement error)
     {
-        errorMessage = "Unknown error";
+        if (error.ValueKind == JsonValueKind.Object
+            && error.TryGetProperty("message", out var messageProp)
+            && messageProp.ValueKind == JsonValueKind.String)
+        {
+            return messageProp.GetString() ?? error.GetRawText();
+        }
 
-        if (result.ValueKind != JsonValueKind.Object)
-            return false;
-
-        if (!result.TryGetProperty("code", out var codeProp) || codeProp.ValueKind != JsonValueKind.Number)
-            return false;
-
-        if (!result.TryGetProperty("message", out var messageProp) || messageProp.ValueKind != JsonValueKind.String)
-            return false;
-
-        errorMessage = messageProp.GetString() ?? errorMessage;
-        return true;
+        return error.GetRawText();
     }
 }

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lspeek — LSP Tester</title>
+<style>
+  :root {
+    --bg: #1e1e1e; --panel: #252526; --panel2: #2d2d30; --border: #3c3c3c;
+    --text: #d4d4d4; --muted: #9b9b9b; --accent: #4fc1ff; --send: #4ec9b0; --recv: #c586c0;
+    --meta: #dcdcaa; --err: #f48771; --green: #89d185; --red: #f14c4c; --yellow: #cca700;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 12px; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--panel2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 13px; margin: 0; font-weight: 600; color: var(--accent); }
+  .pill { padding: 1px 8px; border-radius: 10px; font-weight: 600; font-size: 11px; }
+  .pill.stopped { background: #44444a; color: #cfcfcf; }
+  .pill.starting { background: #4a4326; color: var(--yellow); }
+  .pill.running { background: #294436; color: var(--green); }
+  .pill.exited, .pill.error { background: #4a2626; color: var(--red); }
+  .spacer { flex: 1; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 9px; cursor: pointer; font-family: var(--mono); font-size: 11px; }
+  button:hover { background: #37373d; }
+  button.primary { background: #0e639c; border-color: #0e639c; color: #fff; }
+  button.primary:hover { background: #1177bb; }
+  button.danger:hover { background: #5a1d1d; border-color: var(--red); }
+  input, select, textarea { background: #1b1b1b; color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; font-family: var(--mono); font-size: 11px; }
+  .meta-line { padding: 4px 10px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta-line code { color: var(--text); }
+  main { flex: 1; display: flex; min-height: 0; }
+  #left { display: flex; flex-direction: column; min-width: 360px; width: 52%; border-right: 1px solid var(--border); }
+  #filters { display: flex; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+  #filters label { color: var(--muted); display: flex; gap: 4px; align-items: center; }
+  #listWrap { flex: 1; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  tbody tr { cursor: pointer; border-bottom: 1px solid #2a2a2a; }
+  tbody tr:hover { background: #2a2d2e; }
+  tbody tr.sel { background: #04395e; }
+  td { padding: 3px 6px; vertical-align: top; white-space: nowrap; }
+  td.sum { white-space: normal; word-break: break-word; }
+  .dir { font-weight: 700; }
+  .dir.send { color: var(--send); }
+  .dir.recv { color: var(--recv); }
+  .dir.meta { color: var(--meta); }
+  .seq { color: var(--muted); }
+  .time { color: var(--muted); }
+  .kind { color: var(--accent); }
+  .kind.stderr { color: var(--err); }
+  .kind.error { color: var(--red); }
+  tr.k-stderr td.sum { color: var(--err); }
+  #right { flex: 1; display: flex; flex-direction: column; min-width: 320px; }
+  #detail { flex: 1; overflow: auto; margin: 0; padding: 10px; white-space: pre; color: var(--text); }
+  #detailHead { display: flex; gap: 8px; padding: 5px 8px; border-bottom: 1px solid var(--border); align-items: center; color: var(--muted); }
+  #send { border-top: 1px solid var(--border); background: var(--panel); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
+  #snippets { display: flex; gap: 4px; flex-wrap: wrap; }
+  #snippets button { font-size: 10px; padding: 2px 6px; }
+  #sendRow { display: flex; gap: 6px; align-items: stretch; }
+  #sendText { flex: 1; min-height: 70px; resize: vertical; white-space: pre; }
+  #sendCol { display: flex; flex-direction: column; gap: 4px; justify-content: flex-start; }
+  .hint { color: var(--muted); font-size: 10px; }
+  .err { color: var(--red); }
+  .ok { color: var(--green); }
+  .json-key { color: var(--accent); }
+  .json-str { color: var(--send); }
+  .json-num { color: #b5cea8; }
+  .json-bool { color: #569cd6; }
+  .json-null { color: #569cd6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>lspeek — LSP Tester</h1>
+  <span id="status" class="pill stopped">stopped</span>
+  <span id="pid" class="hint"></span>
+  <span class="spacer"></span>
+  <button id="btnStart" class="primary">Start / Restart…</button>
+  <button id="btnStop" class="danger">Stop</button>
+  <button id="btnClear">Clear log</button>
+  <span id="count" class="hint"></span>
+</header>
+<div id="meta" class="meta-line"></div>
+
+<div id="startPanel" style="display:none; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--panel); gap:8px; flex-wrap:wrap; align-items:flex-end;">
+  <label class="hint" style="display:flex;flex-direction:column;gap:2px;">server path / repo root<br><input id="spPath" size="48" placeholder="C:\path\to\worktree  or  ...\Microsoft.CodeAnalysis.LanguageServer.dll" /></label>
+  <label class="hint" style="display:flex;flex-direction:column;gap:2px;">config<br><select id="spConfig"><option value="">(newest)</option><option>Debug</option><option>Release</option></select></label>
+  <label class="hint" style="display:flex;flex-direction:column;gap:2px;">logLevel<br><select id="spLog"><option>Information</option><option>Trace</option><option>Debug</option><option>Warning</option><option>Error</option><option>None</option></select></label>
+  <label class="hint" style="display:flex;flex-direction:column;gap:2px;">extra args<br><input id="spArgs" size="28" placeholder="--autoLoadProjects 200" /></label>
+  <button id="spGo" class="primary">Launch</button>
+  <button id="spCancel">Cancel</button>
+  <span id="spMsg" class="hint"></span>
+</div>
+
+<main>
+  <div id="left">
+    <div id="filters">
+      <label><input type="checkbox" id="fSend" checked /> ▶ send</label>
+      <label><input type="checkbox" id="fRecv" checked /> ◀ recv</label>
+      <label><input type="checkbox" id="fStderr" checked /> stderr</label>
+      <input id="fMethod" placeholder="filter method…" size="18" />
+      <span class="spacer"></span>
+      <label><input type="checkbox" id="fFollow" checked /> follow</label>
+    </div>
+    <div id="listWrap">
+      <table><tbody id="rows"></tbody></table>
+    </div>
+  </div>
+  <div id="right">
+    <div id="detailHead">
+      <span id="detailTitle">Select a message</span>
+      <span class="spacer"></span>
+      <button id="btnCopy">Copy JSON</button>
+    </div>
+    <pre id="detail"></pre>
+    <div id="send">
+      <div id="snippets"></div>
+      <div id="sendRow">
+        <textarea id="sendText" spellcheck="false" placeholder='Paste a JSON-RPC message, e.g. {"method":"shutdown"}'></textarea>
+        <div id="sendCol">
+          <button id="btnSend" class="primary">Send</button>
+          <button id="btnSendWait">Send &amp; wait</button>
+          <span id="sendMsg" class="hint"></span>
+        </div>
+      </div>
+      <div class="hint">jsonrpc/id are auto-added for requests. "Send &amp; wait" blocks on the matching response.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const INSTANCE = "__INSTANCE_ID__";
+const qs = "?instance=" + encodeURIComponent(INSTANCE);
+const all = [];
+const bySeq = new Map();
+let selected = null;
+
+const $ = (id) => document.getElementById(id);
+const rowsEl = $("rows");
+
+function passes(m) {
+  if (m.kind === "stderr") return $("fStderr").checked;
+  if (m.direction === "send") return $("fSend").checked;
+  if (m.direction === "recv") return $("fRecv").checked;
+  if (m.direction === "meta") return true;
+  const mf = $("fMethod").value.trim().toLowerCase();
+  if (mf && !(m.method || "").toLowerCase().includes(mf)) return false;
+  return true;
+}
+function passesAll(m) {
+  if (!passes(m)) return false;
+  const mf = $("fMethod").value.trim().toLowerCase();
+  if (mf && !(m.method || m.summary || "").toLowerCase().includes(mf)) return false;
+  return true;
+}
+
+function dirGlyph(d) { return d === "send" ? "▶" : d === "recv" ? "◀" : "•"; }
+
+function makeRow(m) {
+  const tr = document.createElement("tr");
+  tr.className = "k-" + (m.kind || "");
+  tr.dataset.seq = m.seq;
+  tr.innerHTML =
+    '<td class="seq">' + m.seq + '</td>' +
+    '<td class="time">' + (m.time ? m.time.slice(11, 23) : "") + '</td>' +
+    '<td class="dir ' + m.direction + '">' + dirGlyph(m.direction) + '</td>' +
+    '<td class="kind ' + (m.kind || "") + '">' + (m.kind || "") + '</td>' +
+    '<td class="sum">' + escapeHtml(m.method || m.summary || "") + '</td>';
+  tr.addEventListener("click", () => select(m.seq));
+  return tr;
+}
+
+function addMessage(m) {
+  all.push(m);
+  bySeq.set(m.seq, m);
+  if (passesAll(m)) {
+    rowsEl.appendChild(makeRow(m));
+    if ($("fFollow").checked) $("listWrap").scrollTop = $("listWrap").scrollHeight;
+  }
+  $("count").textContent = all.length + " msgs";
+}
+
+function rebuild() {
+  rowsEl.textContent = "";
+  for (const m of all) if (passesAll(m)) rowsEl.appendChild(makeRow(m));
+  if (selected != null) {
+    const r = rowsEl.querySelector('tr[data-seq="' + selected + '"]');
+    if (r) r.classList.add("sel");
+  }
+}
+
+function select(seq) {
+  selected = seq;
+  for (const tr of rowsEl.querySelectorAll("tr.sel")) tr.classList.remove("sel");
+  const r = rowsEl.querySelector('tr[data-seq="' + seq + '"]');
+  if (r) r.classList.add("sel");
+  const m = bySeq.get(seq);
+  if (!m) return;
+  $("detailTitle").textContent =
+    dirGlyph(m.direction) + " " + (m.method || m.kind) + (m.id !== undefined ? "  (id " + JSON.stringify(m.id) + ")" : "");
+  const payload = m.payload;
+  $("detail").innerHTML = typeof payload === "string" ? escapeHtml(payload) : highlight(payload);
+}
+
+function setStatus(s) {
+  const el = $("status");
+  el.textContent = s.status;
+  el.className = "pill " + s.status;
+  $("pid").textContent = s.pid ? "pid " + s.pid : "";
+  const parts = [];
+  if (s.dllPath) parts.push("dll: <code>" + escapeHtml(s.dllPath) + "</code>");
+  if (s.commandLine) parts.push("cmd: <code>" + escapeHtml(s.commandLine.join(" ")) + "</code>");
+  if (s.exitInfo) parts.push("exit: <code>" + escapeHtml(JSON.stringify(s.exitInfo)) + "</code>");
+  $("meta").innerHTML = parts.join("  |  ") || "Server not started.";
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function highlight(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  return escapeHtml(json)
+    .replace(/&quot;([^&]+)&quot;(\s*:)/g, '<span class="json-key">&quot;$1&quot;</span>$2')
+    .replace(/: &quot;([^&]*)&quot;/g, ': <span class="json-str">&quot;$1&quot;</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+}
+
+// --- live stream -----------------------------------------------------------
+async function bootstrap() {
+  const res = await fetch("./api/state" + qs);
+  const state = await res.json();
+  setStatus(state.status);
+  for (const m of state.messages) addMessage(m);
+  if (state.messages.length) select(state.messages[state.messages.length - 1].seq);
+}
+function connect() {
+  const es = new EventSource("./events" + qs);
+  es.addEventListener("message", (e) => addMessage(JSON.parse(e.data)));
+  es.addEventListener("status", (e) => setStatus(JSON.parse(e.data)));
+  es.addEventListener("cleared", () => { all.length = 0; bySeq.clear(); rowsEl.textContent = ""; selected = null; $("detail").textContent = ""; });
+  es.onerror = () => {};
+}
+
+// --- actions ---------------------------------------------------------------
+async function post(path, body) {
+  const r = await fetch(path + qs, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+async function doSend(wait) {
+  const text = $("sendText").value.trim();
+  if (!text) return;
+  let msg;
+  try { msg = JSON.parse(text); } catch (e) { setSendMsg("Invalid JSON: " + e.message, true); return; }
+  setSendMsg("sending…");
+  const out = await post("./api/send-raw", { message: msg, waitForResponse: !!wait });
+  if (out.error) setSendMsg(out.error, true);
+  else { setSendMsg(wait && out.response ? "got response (id " + JSON.stringify(out.response.id) + ")" : "sent.", false);
+         if (wait && out.response) { /* response shows up via stream */ } }
+}
+function setSendMsg(t, isErr) { const el = $("sendMsg"); el.textContent = t; el.className = "hint " + (isErr ? "err" : "ok"); }
+
+$("btnSend").onclick = () => doSend(false);
+$("btnSendWait").onclick = () => doSend(true);
+$("btnStop").onclick = () => post("./api/stop", {});
+$("btnClear").onclick = () => post("./api/clear", {});
+$("btnCopy").onclick = () => { const m = bySeq.get(selected); if (m) navigator.clipboard.writeText(typeof m.payload === "string" ? m.payload : JSON.stringify(m.payload, null, 2)); };
+for (const id of ["fSend", "fRecv", "fStderr", "fMethod"]) $(id).addEventListener("input", rebuild);
+
+$("btnStart").onclick = () => { $("startPanel").style.display = $("startPanel").style.display === "none" ? "flex" : "none"; };
+$("spCancel").onclick = () => { $("startPanel").style.display = "none"; };
+$("spGo").onclick = async () => {
+  $("spMsg").textContent = "launching…";
+  const extra = $("spArgs").value.trim();
+  const body = {
+    serverPath: $("spPath").value.trim() || undefined,
+    configuration: $("spConfig").value || undefined,
+    logLevel: $("spLog").value || undefined,
+    extraArgs: extra ? extra.split(/\s+/) : undefined,
+  };
+  const out = await post("./api/start", body);
+  if (out.error) { $("spMsg").textContent = out.error; $("spMsg").className = "hint err"; }
+  else { $("spMsg").textContent = "started pid " + out.pid; $("spMsg").className = "hint ok"; $("startPanel").style.display = "none"; }
+};
+
+// --- snippets --------------------------------------------------------------
+const SNIPPETS = {
+  initialize: { method: "initialize", params: { processId: null, clientInfo: { name: "lspeek" }, locale: "en-us", rootUri: "file:///PATH/TO/WORKSPACE", capabilities: { workspace: { configuration: true, workspaceFolders: true }, textDocument: {} }, workspaceFolders: [ { uri: "file:///PATH/TO/WORKSPACE", name: "workspace" } ] } },
+  initialized: { method: "initialized", params: {} },
+  "solution/open": { method: "solution/open", params: { solution: "file:///PATH/TO/Your.sln" } },
+  "project/open": { method: "project/open", params: { projects: ["file:///PATH/TO/Your.csproj"] } },
+  "textDocument/didOpen": { method: "textDocument/didOpen", params: { textDocument: { uri: "file:///PATH/TO/File.cs", languageId: "csharp", version: 1, text: "class C {}" } } },
+  hover: { method: "textDocument/hover", params: { textDocument: { uri: "file:///PATH/TO/File.cs" }, position: { line: 0, character: 6 } } },
+  definition: { method: "textDocument/definition", params: { textDocument: { uri: "file:///PATH/TO/File.cs" }, position: { line: 0, character: 6 } } },
+  shutdown: { method: "shutdown" },
+  exit: { method: "exit" },
+};
+const snipEl = $("snippets");
+for (const [name, body] of Object.entries(SNIPPETS)) {
+  const b = document.createElement("button");
+  b.textContent = name;
+  b.onclick = () => { $("sendText").value = JSON.stringify(body, null, 2); };
+  snipEl.appendChild(b);
+}
+
+bootstrap().then(connect);
+</script>
+</body>
+</html>

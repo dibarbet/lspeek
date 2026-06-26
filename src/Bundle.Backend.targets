@@ -1,0 +1,115 @@
+<Project>
+
+  <!--
+    Bundles lspeek-http next to a frontend (TUI / MCP) so an installed tool can spawn it
+    off-repo without a separate .NET runtime. The frontends ship for many RIDs (win/linux/osx,
+    x64/arm64, glibc/musl), so the *bundled* backend is a self-contained, trimmed, ReadyToRun (R2R)
+    build that, like the frontend itself, cross-compiles to any RID from any OS - letting a single
+    `dotnet pack` produce every RID payload on one runner (no per-OS native-toolchain matrix; this is
+    why the backend uses R2R rather than native AOT, which can't cross-compile). The bundled copy is
+    the same build as the standalone lspeek-http tool. The in-repo build output instead bundles the
+    backend's managed, framework-dependent build output for fast local run/smoke.
+
+      * _CopyBackendToOutput  - (local dev, no RID) copies the backend's managed build output into
+                                $(OutDir)backend/ for local `dotnet run`/smoke (run via `dotnet exec`).
+      * _PublishBackendForBundle / _AddBackendToPackage - (RID pack) publish the backend
+                                self-contained for the RID and inject it under
+                                tools/<seg>/<rid>/backend/, where <seg> mirrors the SDK's own
+                                tool-folder TFM ("any" when the frontend is self-contained).
+
+    BackendLauncher always resolves baseDir/backend, so the spawned backend is found either way:
+    a self-contained apphost runs directly; a managed dll runs via `dotnet exec`.
+  -->
+
+  <!--
+    Build-ordering reference for LOCAL DEV builds only (no RID): ensures the backend is built
+    before _CopyBackendToOutput copies it beside the frontend. It is intentionally absent from
+    self-contained RID builds - NETSDK1150 forbids a self-contained executable from referencing
+    the (non-self-contained) backend exe, and the RID pack doesn't need it anyway: it publishes
+    the backend fresh via _PublishBackendForBundle. ReferenceOutputAssembly/Private/ExcludeAssets/
+    PrivateAssets keep the backend's assembly, apphost, and transitive (ASP.NET Core) assets out
+    of the frontend's own output.
+  -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Client.Backend\Client.Backend.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false"
+                      ExcludeAssets="all"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <BackendProject>$(MSBuildThisFileDirectory)Client.Backend\Client.Backend.csproj</BackendProject>
+    <BackendBuildOutputDir>$(MSBuildThisFileDirectory)Client.Backend\bin\$(Configuration)\$(TargetFramework)\</BackendBuildOutputDir>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddBackendToPackage</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!--
+    Resolve the publish staging dir at execution time. This file is imported before the SDK's
+    implicit Sdk.targets, so $(IntermediateOutputPath) is still empty during evaluation; computing
+    it in a target (when the SDK has finalized obj\<cfg>\<tfm>\<rid>\) keeps the staging dir under
+    obj/ (gitignored) instead of leaking a "backendbundle" folder into the project root.
+  -->
+  <Target Name="_InitBackendBundleDir">
+    <PropertyGroup>
+      <BackendBundleDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'backendbundle'))</BackendBundleDir>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    Copy the backend's managed build output beside the frontend so local run/smoke finds it.
+    Local dev only (no RID); RID packs bundle the self-contained backend from the publish staging dir.
+  -->
+  <Target Name="_CopyBackendToOutput" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' == ''">
+    <ItemGroup>
+      <_BackendOutputFile Include="$(BackendBuildOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BackendOutputFile)"
+          DestinationFiles="@(_BackendOutputFile->'$(OutDir)backend\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_BackendOutputFile)' != ''" />
+  </Target>
+
+  <!--
+    Publish the backend for this package's RID and stage it for bundling. The bundled backend is a
+    self-contained, trimmed, ReadyToRun build (SelfContained=true, PublishReadyToRun=true,
+    PublishTrimmed=true) so it cross-compiles to any RID from any OS - the frontends ship for
+    osx/arm64/musl too, and R2R (unlike native AOT) needs no per-OS native-toolchain matrix. It is the
+    same build as the standalone lspeek-http tool. Only runs for RID-specific payload packs; the
+    no-RID manifest pack carries no implementation, so it bundles nothing.
+
+    No explicit Restore here on purpose: the SDK packs the frontend RIDs in parallel (BuildInParallel
+    on the same project), so a per-RID Restore would race on the backend's shared project.assets.json
+    (NETSDK1047). Instead the backend declares RuntimeIdentifiers for all bundled RIDs, so the single
+    top-level restore produces multi-RID assets up front; these parallel publishes only read that
+    assets file and write to per-RID obj subdirs + a unique PublishDir, so they never collide.
+  -->
+  <Target Name="_PublishBackendForBundle" DependsOnTargets="_InitBackendBundleDir"
+          Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
+    <RemoveDir Directories="$(BackendBundleDir)" />
+    <MSBuild Projects="$(BackendProject)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=true;PublishReadyToRun=true;PublishTrimmed=true;PublishDir=$(BackendBundleDir)" />
+  </Target>
+
+  <!--
+    Inject the self-contained backend into the RID tool package under backend/, co-located with the
+    frontend payload. The SDK places a self-contained RID tool's files under tools/any/<rid>/
+    (it forces the TFM segment to "any" when SelfContained is true, since the runtime is bundled),
+    and tools/<tfm>/<rid>/ otherwise - so mirror that rule here so BackendLauncher's baseDir/backend
+    probe always finds it.
+  -->
+  <Target Name="_AddBackendToPackage" DependsOnTargets="_PublishBackendForBundle"
+          Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != 'any'">
+    <PropertyGroup>
+      <_BackendToolTfmSegment Condition="'$(SelfContained)' == 'true'">any</_BackendToolTfmSegment>
+      <_BackendToolTfmSegment Condition="'$(_BackendToolTfmSegment)' == ''">$(TargetFramework)</_BackendToolTfmSegment>
+    </PropertyGroup>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(BackendBundleDir)**\*">
+        <PackagePath>tools/$(_BackendToolTfmSegment)/$(RuntimeIdentifier)/backend/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+</Project>
