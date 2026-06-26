@@ -5,9 +5,9 @@ namespace Lspeek.Core.Session;
 
 /// <summary>
 /// Thread-safe, seq-numbered ring buffer of <see cref="LspMessageRecord"/> with filtered
-/// reads and "wait for a matching message" helpers. Ported from the canvas extension's
-/// per-instance buffer so the backend exposes the same <c>get_messages</c> /
-/// <c>wait_for_message</c> semantics.
+/// reads and "wait for a matching message" helpers. Mirrors the canvas extension's
+/// per-instance buffer, exposing the same <c>get_messages</c> / <c>wait_for_message</c>
+/// semantics.
 /// </summary>
 public sealed class MessageBuffer
 {

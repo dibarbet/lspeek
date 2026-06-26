@@ -8,7 +8,7 @@ namespace Lspeek.Tests.Integration;
 
 /// <summary>
 /// Unit tests for <see cref="RawLspConnection"/> — the hand-rolled Content-Length JSON-RPC
-/// client ported from the canvas extension. This is the riskiest ported component (it underpins
+/// client. This is the riskiest wire component (it underpins
 /// send_raw, manual respond, and server→client handling), so it gets focused coverage over an
 /// in-memory full-duplex stream with a test-controlled "server" end.
 /// </summary>

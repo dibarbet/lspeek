@@ -34,7 +34,6 @@ public class SessionLog
     {
         lock (_lock)
         {
-            // Compute status
             message.Status = ComputeStatus(message);
 
             // If this is a response, mark the corresponding request as OK/Error

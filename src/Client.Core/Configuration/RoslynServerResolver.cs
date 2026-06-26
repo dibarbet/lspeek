@@ -7,7 +7,6 @@ namespace Lspeek.Core.Configuration;
 /// Resolves a locally-built Roslyn language server (<c>Microsoft.CodeAnalysis.LanguageServer.dll</c>)
 /// from a repo root/worktree, output directory, or full dll path, and translates friendly
 /// <see cref="StartServerRequest"/> options into a launchable <see cref="ServerConfig"/>.
-/// Ported from the canvas extension's <c>resolveServerDll</c> / <c>buildServerArgs</c>.
 /// </summary>
 public static class RoslynServerResolver
 {

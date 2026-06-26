@@ -35,14 +35,10 @@ public class LspServerProcess : IAsyncDisposable
     public Task WaitForExitAsync(CancellationToken cancellationToken = default)
         => _process.HasExited ? Task.CompletedTask : _process.WaitForExitAsync(cancellationToken);
 
-    /// <summary>
-    /// Event raised when a line is written to the server's stderr.
-    /// </summary>
+    /// <summary>Raised when a line is written to the server's stderr.</summary>
     public event Action<string>? StderrLineReceived;
 
-    /// <summary>
-    /// Event raised when the server process exits.
-    /// </summary>
+    /// <summary>Raised when the server process exits.</summary>
     public event Action? Exited;
 
     private LspServerProcess(Process process)

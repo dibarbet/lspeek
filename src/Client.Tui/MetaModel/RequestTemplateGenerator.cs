@@ -78,7 +78,6 @@ public class RequestTemplateGenerator
 
     private JsonNode? GenerateForReference(string name, int depth)
     {
-        // Check if it's a structure
         var structure = _provider.GetStructure(name);
         if (structure is not null)
         {
@@ -86,14 +85,12 @@ public class RequestTemplateGenerator
             return GenerateForStructureProperties(allProps, depth);
         }
 
-        // Check if it's an enumeration
         var enumeration = _provider.GetEnumeration(name);
         if (enumeration is not null)
         {
             return GenerateForEnumeration(enumeration);
         }
 
-        // Check if it's a type alias
         var alias = _provider.GetTypeAlias(name);
         if (alias is not null)
         {

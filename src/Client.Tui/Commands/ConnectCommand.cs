@@ -35,7 +35,6 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
     {
         var isScriptMode = settings.JsonPath is not null;
 
-        // Resolve server configuration
         var configProvider = ServerConfigProvider.Load();
         ServerConfig serverConfig;
         try
@@ -89,7 +88,6 @@ public class ConnectCommand : AsyncCommand<ConnectCommand.Settings>
 
         var hasScript = settings.JsonPath is not null;
 
-        // Run JSON script if provided
         if (settings.JsonPath is not null)
         {
             var script = ScriptFile.Load(settings.JsonPath);

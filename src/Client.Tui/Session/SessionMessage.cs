@@ -21,8 +21,8 @@ public enum MessageStatus
 /// <summary>
 /// A single entry in the LSP session log, projected from the backend's wire
 /// <see cref="LspMessageRecord"/>. Display state is derived directly from the record's
-/// <c>direction</c>/<c>kind</c> strings rather than a parallel enum model.
-/// Groups related request/response pairs and associated stderr output.
+/// <c>direction</c>/<c>kind</c> strings. Groups related request/response pairs and
+/// associated stderr output.
 /// </summary>
 public class SessionMessage
 {
@@ -56,10 +56,6 @@ public class SessionMessage
     public bool IsRequest => Kind == "request";
     public bool IsResponse => Kind == "response";
     public bool IsNotification => Kind == "notification";
-
-    /// <summary>
-    /// Whether this is a stderr log entry.
-    /// </summary>
     public bool IsStderr => Kind == "stderr";
 
     /// <summary>
