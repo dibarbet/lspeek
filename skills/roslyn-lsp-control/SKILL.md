@@ -37,12 +37,11 @@ result envelopes are the same.
   separate download. When working from the repo, build once with `dotnet build lspeek.slnx`; each
   frontend then finds the backend in a `backend/` folder beside its own build output, and the
   **canvas** auto-discovers the in-repo backend build directly. The canvas can also run fully
-  off-repo: with no local build it falls back to `dotnet dnx lspeek-http`, which fetches the
+  off-repo: with no local build it falls back to `dotnet dnx lspeek-http`, which fetches the latest
   published backend tool from NuGet (cached after the first run), so it just needs the .NET SDK on
-  PATH. You can always point any frontend at a specific host with the `LSPEEK_HTTP` environment
-  variable (a host file or a directory containing it); for the canvas's dnx path,
-  `LSPEEK_HTTP_VERSION` pins an exact version and `LSPEEK_HTTP_PRERELEASE=1` allows
-  prereleases. The backend bundled in `lspeek`/`lspeek-mcp` and the one acquired via dnx are the same
+  PATH. You can point the `lspeek`/`lspeek-mcp` frontends at a specific host with the `LSPEEK_HTTP`
+  environment variable (a host file or a directory containing it). The backend bundled in
+  `lspeek`/`lspeek-mcp` and the one acquired via dnx are the same
   **self-contained, trimmed, ReadyToRun (R2R)** build for the matching RID (no separate .NET runtime
   needed); R2R cross-compiles, so all RIDs (win/linux/osx, x64/arm64, glibc/musl) are built on one runner.
 - **The frontend you intend to use is available:**

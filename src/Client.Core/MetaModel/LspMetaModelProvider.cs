@@ -60,18 +60,6 @@ public class LspMetaModelProvider
     }
 
     /// <summary>
-    /// Gets all notification methods that a server can send to the client.
-    /// </summary>
-    public IReadOnlyList<string> GetServerNotificationMethods()
-    {
-        return _model.Notifications
-            .Where(n => n.MessageDirection is "serverToClient" or "both")
-            .Select(n => n.Method)
-            .OrderBy(m => m)
-            .ToList();
-    }
-
-    /// <summary>
     /// Looks up a request by method name.
     /// </summary>
     public LspRequest? GetRequest(string method)

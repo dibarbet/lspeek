@@ -33,7 +33,6 @@ namespace ManualLspClient.Protocol;
 [JsonSerializable(typeof(WaitForMessageResult))]
 [JsonSerializable(typeof(InstanceState))]
 [JsonSerializable(typeof(ErrorResponse))]
-[JsonSerializable(typeof(HelpResponse))]
 [JsonSerializable(typeof(OkResponse))]
 [JsonSerializable(typeof(string))]
 public partial class BackendJsonContext : JsonSerializerContext;

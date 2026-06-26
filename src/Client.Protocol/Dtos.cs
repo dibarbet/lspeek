@@ -213,12 +213,6 @@ public sealed class ErrorResponse
     public string Error { get; set; } = "";
 }
 
-/// <summary>Result of <c>GET /api/help</c>.</summary>
-public sealed class HelpResponse
-{
-    public string Help { get; set; } = "";
-}
-
 /// <summary>
 /// Generic success envelope (<c>{ ok: true }</c>), optionally carrying the method
 /// that was sent (used by <c>lsp_notify</c> → <c>{ ok: true, sent: "..." }</c>).

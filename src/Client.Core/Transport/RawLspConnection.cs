@@ -297,7 +297,7 @@ public sealed class RawLspConnection : IAsyncDisposable
 
     private PendingRequest RegisterPending(string idKey, string method, int timeoutMs)
     {
-        var pending = new PendingRequest(method);
+        var pending = new PendingRequest();
         _pending[idKey] = pending;
         if (timeoutMs > 0)
         {
@@ -434,13 +434,12 @@ public sealed class RawLspConnection : IAsyncDisposable
         _cts.Dispose();
     }
 
-    private sealed class PendingRequest(string method)
+    private sealed class PendingRequest
     {
         private readonly TaskCompletionSource<JsonElement> _tcs =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private Action? _onSettled;
 
-        public string Method { get; } = method;
         public Task<JsonElement> Task => _tcs.Task;
 
         public void OnSettled(Action action) => _onSettled = action;

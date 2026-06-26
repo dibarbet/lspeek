@@ -171,9 +171,6 @@ public sealed class BackendClient : IAsyncDisposable
     public Task<InstanceState> GetStateAsync(CancellationToken ct = default)
         => GetAsync<InstanceState>("/api/state", ct);
 
-    public async Task<string> GetHelpAsync(CancellationToken ct = default)
-        => (await GetAsync<HelpResponse>("/api/help", ct).ConfigureAwait(false)).Help;
-
     // ── LSP traffic actions ────────────────────────────────────────────────────
 
     public Task<LspRequestResult> RequestAsync(LspRequestInput input, CancellationToken ct = default)

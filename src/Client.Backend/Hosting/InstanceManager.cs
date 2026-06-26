@@ -19,8 +19,6 @@ public sealed class InstanceManager : IAsyncDisposable
         return _instances.GetOrAdd(id, static key => new BackendInstance(key));
     }
 
-    public IReadOnlyCollection<string> InstanceIds => _instances.Keys.ToArray();
-
     public async ValueTask DisposeAsync()
     {
         foreach (var instance in _instances.Values)

@@ -14,8 +14,7 @@
 // Step 2 is what lets the canvas run off-repo. The .NET tools (lspeek, lspeek-mcp) bundle the
 // backend beside them, so BackendLauncher.cs has no dnx step; this JS extension can't bundle a
 // .NET app, so it falls back to dnx, which needs the .NET SDK on PATH but no prior build/install
-// (dnx downloads + caches the lspeek-http tool on first use, then launches it).
-// Pin a version with LSPEEK_HTTP_VERSION; opt into prereleases with LSPEEK_HTTP_PRERELEASE.
+// (dnx downloads + caches the latest lspeek-http tool on first use, then launches it).
 
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
@@ -27,11 +26,9 @@ const EXECUTABLE_NAME = "lspeek-http";
 const HANDSHAKE_PREFIX = "LSPEEK_HTTP_URL=";
 const HANDSHAKE_TIMEOUT_MS = 30000;
 
-// `dotnet dnx` fallback (step 2): NuGet package id + env overrides + a longer handshake budget,
-// since a cold first-run download from NuGet can take much longer than a local launch.
+// `dotnet dnx` fallback (step 2): NuGet package id + a longer handshake budget, since a cold
+// first-run download from NuGet can take much longer than a local launch.
 const DNX_PACKAGE_ID = "lspeek-http";
-const DNX_VERSION_ENV = "LSPEEK_HTTP_VERSION";
-const DNX_PRERELEASE_ENV = "LSPEEK_HTTP_PRERELEASE";
 const DNX_HANDSHAKE_TIMEOUT_MS = 120000;
 
 const isWindows = process.platform === "win32";
@@ -56,23 +53,11 @@ function resolveLaunch() {
 }
 
 /**
- * Launch the backend via `dotnet dnx`, which downloads the published tool from NuGet (cached
- * after the first run) and runs it. LSPEEK_HTTP_VERSION pins an exact version;
- * LSPEEK_HTTP_PRERELEASE (1/true/yes/on) allows floating to the latest prerelease.
+ * Launch the backend via `dotnet dnx`, which downloads the latest published tool from NuGet
+ * (cached after the first run) and runs it.
  */
 function dnxLaunch() {
-    const version = (process.env[DNX_VERSION_ENV] ?? "").trim();
-    const args = ["dnx", "--yes"];
-    // --prerelease and an explicit @version are mutually exclusive in dnx.
-    if (!version && isTruthy(process.env[DNX_PRERELEASE_ENV])) args.push("--prerelease");
-    args.push(version ? `${DNX_PACKAGE_ID}@${version}` : DNX_PACKAGE_ID);
-    return { command: "dotnet", args, timeoutMs: DNX_HANDSHAKE_TIMEOUT_MS };
-}
-
-function isTruthy(value) {
-    if (!value) return false;
-    const s = String(value).trim().toLowerCase();
-    return s === "1" || s === "true" || s === "yes" || s === "on";
+    return { command: "dotnet", args: ["dnx", "--yes", DNX_PACKAGE_ID], timeoutMs: DNX_HANDSHAKE_TIMEOUT_MS };
 }
 
 function isDirectory(p) {

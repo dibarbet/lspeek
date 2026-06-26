@@ -35,8 +35,7 @@ public class SessionMessage
     public MessageStatus Status { get; set; } = MessageStatus.Sent;
 
     /// <summary>
-    /// Stderr lines. For Stderr-type messages these are the log entry content;
-    /// retained on other message types for backward compatibility but no longer populated.
+    /// Stderr lines for <see cref="MessageType.Stderr"/> messages; empty for all other message types.
     /// </summary>
     public List<string> StderrLines { get; } = [];
 

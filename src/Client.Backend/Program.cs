@@ -31,20 +31,6 @@ for (int i = 0; i < args.Length; i++)
     }
 }
 
-const string HelpText =
-    """
-    lspeek backend — drive an LSP server:
-    1. start_server { serverPath:"<repo root / worktree, or full dll path>", logLevel:"Information" }
-       (or { server:"roslyn" } for the released package server)
-    2. lsp_request { method:"initialize", params:{ processId:null, rootUri:"file:///<ws>", capabilities:{ workspace:{ configuration:true, workspaceFolders:true } }, workspaceFolders:[{uri:"file:///<ws>",name:"ws"}] } }
-    3. lsp_notify  { method:"initialized", params:{} }
-    4. lsp_notify  { method:"solution/open", params:{ solution:"file:///<path>.sln" } }   (or project/open, or pass --autoLoadProjects / autoLoadProjects at start)
-    5. wait_for_message { method:"workspace/projectInitializationComplete", timeoutMs:600000 }
-    6. open a document, then send feature requests (textDocument/hover, definition, completion, ...).
-    Use get_messages to read logs / $/progress / diagnostics that arrive asynchronously.
-    File paths MUST be file:// URIs. Notifications get no response; requests do (lsp_request waits).
-    """;
-
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.Logging.ClearProviders();
 builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
@@ -88,8 +74,6 @@ app.MapGet("/api/state", (HttpContext http) =>
 });
 
 app.MapGet("/api/status", (HttpContext http) => Results.Json(Inst(http, manager).SnapshotStatus(), BackendJsonContext.Default.ServerStatus));
-
-app.MapGet("/api/help", () => Results.Json(new HelpResponse { Help = HelpText }, BackendJsonContext.Default.HelpResponse));
 
 // ── server lifecycle ─────────────────────────────────────────────────────────
 app.MapPost("/api/start", async (HttpContext http, StartServerRequest? body) =>

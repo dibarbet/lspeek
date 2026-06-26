@@ -8,8 +8,6 @@ namespace ManualLspClient.Core.Transport;
 public class LspServerProcess : IAsyncDisposable
 {
     private readonly Process _process;
-    private readonly List<string> _stderrLines = [];
-    private readonly object _stderrLock = new();
     private bool _disposed;
 
     public Stream InputStream => _process.StandardInput.BaseStream;
@@ -91,14 +89,6 @@ public class LspServerProcess : IAsyncDisposable
         return serverProcess;
     }
 
-    public IReadOnlyList<string> GetStderrLines()
-    {
-        lock (_stderrLock)
-        {
-            return [.. _stderrLines];
-        }
-    }
-
     private void StartStderrCapture()
     {
         _ = Task.Run(async () =>
@@ -107,10 +97,6 @@ public class LspServerProcess : IAsyncDisposable
             {
                 while (await _process.StandardError.ReadLineAsync() is { } line)
                 {
-                    lock (_stderrLock)
-                    {
-                        _stderrLines.Add(line);
-                    }
                     StderrLineReceived?.Invoke(line);
                 }
             }

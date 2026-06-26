@@ -25,7 +25,6 @@ public class WorkDoneProgressItem
     public string Title { get; set; } = "";
     public string? Message { get; set; }
     public int? Percentage { get; set; }
-    public bool Cancellable { get; set; }
     public ProgressItemState State { get; set; } = ProgressItemState.Created;
     public DateTimeOffset? EndedAt { get; set; }
 }
@@ -41,11 +40,6 @@ public class WorkDoneProgressTracker
 
     private readonly Dictionary<string, WorkDoneProgressItem> _items = new();
     private readonly object _lock = new();
-
-    /// <summary>
-    /// Raised when any progress item is created, updated, or removed.
-    /// </summary>
-    public event Action? ProgressChanged;
 
     /// <summary>
     /// Processes a session message, updating progress state if relevant.
@@ -112,8 +106,6 @@ public class WorkDoneProgressTracker
                 State = ProgressItemState.Created
             });
         }
-
-        ProgressChanged?.Invoke();
     }
 
     private void HandleProgress(SessionMessage message)
@@ -151,8 +143,6 @@ public class WorkDoneProgressTracker
                     return; // Unknown kind, ignore
             }
         }
-
-        ProgressChanged?.Invoke();
     }
 
     private void HandleBegin(string token, JsonElement value)
@@ -172,8 +162,6 @@ public class WorkDoneProgressTracker
         item.Percentage = value.TryGetProperty("percentage", out var pct)
             && pct.ValueKind == JsonValueKind.Number
             ? pct.GetInt32() : null;
-        item.Cancellable = value.TryGetProperty("cancellable", out var canc)
-            && canc.ValueKind == JsonValueKind.True;
     }
 
     private void HandleReport(string token, JsonElement value)
@@ -185,8 +173,6 @@ public class WorkDoneProgressTracker
             item.Message = msg.GetString();
         if (value.TryGetProperty("percentage", out var pct) && pct.ValueKind == JsonValueKind.Number)
             item.Percentage = pct.GetInt32();
-        if (value.TryGetProperty("cancellable", out var canc))
-            item.Cancellable = canc.ValueKind == JsonValueKind.True;
     }
 
     private void HandleEnd(string token, JsonElement value)

@@ -92,14 +92,14 @@ Packaged tools ship a **self-contained** copy of the backend in that `backend/` 
 platform-specific apphost run directly; a local `dotnet build` copies the backend's **managed** build
 output there instead (run via `dotnet exec`). Either way the same `backend/` probe finds it.
 
-The canvas extension can't bundle a .NET app, so it uses the same `LSPEEK_HTTP` override and in-repo
-dev build, then falls back to **`dotnet dnx lspeek-http`** — fetching the published backend tool from
-NuGet (a self-contained, ReadyToRun, platform-specific build for every supported RID; cached after first
-run) so it works off-repo with only the .NET SDK installed. See
+The canvas extension can't bundle a .NET app, so it uses the in-repo dev build, then falls back to
+**`dotnet dnx lspeek-http`** — fetching the published backend tool from NuGet (a self-contained,
+ReadyToRun, platform-specific build for every supported RID; cached after first run) so it works
+off-repo with only the .NET SDK installed. See
 [the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
 
-Set `LSPEEK_HTTP` to override discovery — e.g. point every frontend at one freshly built backend
-while iterating on it.
+Set `LSPEEK_HTTP` to override discovery for the .NET frontends (TUI, MCP) — e.g. point them at one
+freshly built backend while iterating on it.
 
 ## TUI (`lspeek`)
 
@@ -148,9 +148,9 @@ Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
 ### Running off-repo (no local build)
 
 The canvas is two small JS files — it can't bundle the .NET backend the way the packaged tools do.
-Instead, when it can't find a local backend (no `LSPEEK_HTTP`, no in-repo build) it runs
-**`dotnet dnx lspeek-http`**, which downloads the published backend tool from NuGet on first use,
-caches it, and launches it. So the only prerequisite off-repo is the **.NET SDK** (which provides `dnx`).
+Instead, when it can't find an in-repo build it runs **`dotnet dnx lspeek-http`**, which downloads
+the published backend tool from NuGet on first use, caches it, and launches it. So the only
+prerequisite off-repo is the **.NET SDK** (which provides `dnx`).
 
 The backend ships as its own [`lspeek-http`](https://www.nuget.org/packages/lspeek-http) tool,
 published as a **self-contained, ReadyToRun (R2R), platform-specific** build for every supported RID
@@ -158,14 +158,6 @@ published as a **self-contained, ReadyToRun (R2R), platform-specific** build for
 the backend needs **no .NET runtime of its own**. R2R cross-compiles, so all RID payloads are built on a
 single runner. `dnx` reads the package's RID manifest and fetches whichever payload matches the current
 machine.
-
-Optional environment overrides (read by the canvas):
-
-| Variable | Effect |
-|---|---|
-| `LSPEEK_HTTP` | Use a specific backend host file or directory instead of dnx (e.g. a local build). |
-| `LSPEEK_HTTP_VERSION` | Pin the dnx tool to an exact version (e.g. `1.0.42`) instead of the latest stable. |
-| `LSPEEK_HTTP_PRERELEASE` | Set to `1`/`true` to let dnx float to the latest **prerelease** version. |
 
 ## Built-in Servers
 
