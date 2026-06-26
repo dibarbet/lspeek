@@ -37,7 +37,7 @@ public class SurfaceParityTests
     [Fact]
     public void CanvasActions_ExposeTheCanonicalSurface()
     {
-        var source = ReadRepoFile(Path.Combine(".github", "extensions", "roslyn-lsp-tester", "extension.mjs"));
+        var source = ReadRepoFile(Path.Combine(".github", "extensions", "lspeek-canvas", "extension.mjs"));
         // Action declarations appear as a `name: "..."` property on its own line within each action object.
         var names = Matches(source, """^\s*name:\s*"([a-z_]+)",""", RegexOptions.Multiline);
 
@@ -49,7 +49,7 @@ public class SurfaceParityTests
     {
         var mcp = Matches(ReadRepoFile(Path.Combine("src", "Client.Mcp", "LspTools.cs")),
             """McpServerTool\(Name\s*=\s*"([a-z_]+)"\)""");
-        var canvas = Matches(ReadRepoFile(Path.Combine(".github", "extensions", "roslyn-lsp-tester", "extension.mjs")),
+        var canvas = Matches(ReadRepoFile(Path.Combine(".github", "extensions", "lspeek-canvas", "extension.mjs")),
             """^\s*name:\s*"([a-z_]+)",""", RegexOptions.Multiline);
 
         Assert.Equal(mcp, canvas);

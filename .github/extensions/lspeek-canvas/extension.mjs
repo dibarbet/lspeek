@@ -1,7 +1,7 @@
-// Roslyn LSP Tester — a canvas extension that lets a chat session launch and interactively
-// drive a live language server, send arbitrary LSP messages, await responses, stream every
-// frame to a clickable canvas, and read async server notifications (logs, $/progress,
-// workspace/projectInitializationComplete).
+// lspeek Canvas — a canvas extension that lets a chat session launch and interactively
+// drive a live language server (any LSP), send arbitrary LSP messages, await responses,
+// stream every frame to a clickable canvas, and read async server notifications (logs,
+// $/progress, workspace/projectInitializationComplete).
 //
 // Thin client: this extension owns no LSP or web-server logic. It spawns the unified C#
 // backend (src/Client.Backend) as a private child process — one per canvas instance — and
@@ -53,13 +53,13 @@ function fail(err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
 }
 
-const HELP = `Roslyn LSP Tester — how to drive the server:
-1. open_canvas(canvasId:"roslyn-lsp-tester", instanceId:"lsp1")
-2. start_server { serverPath:"<repo root / worktree, or full dll path>", logLevel:"Information" }   (or { server:"roslyn" } for the released package server)
+const HELP = `lspeek Canvas — how to drive an LSP server:
+1. open_canvas(canvasId:"lspeek-canvas", instanceId:"lsp1")
+2. start_server { serverPath:"<repo root / worktree, or full dll path>", logLevel:"Information" }   (or { server:"roslyn" } / { server:"<server-config>.json" } for a named or custom server)
 3. lsp_request { method:"initialize", params:{ processId:null, rootUri:"file:///<ws>", capabilities:{ workspace:{ configuration:true, workspaceFolders:true } }, workspaceFolders:[{uri:"file:///<ws>",name:"ws"}] } }
 4. lsp_notify  { method:"initialized", params:{} }
-5. lsp_notify  { method:"solution/open", params:{ solution:"file:///<path>.sln" } }   (or project/open, or pass --autoLoadProjects at start)
-6. wait_for_message { method:"workspace/projectInitializationComplete", timeoutMs:600000 }   // projects finished loading
+5. load projects/workspace as your server expects (e.g. solution/open or project/open for Roslyn, or --autoLoadProjects at start)
+6. wait_for_message { method:"workspace/projectInitializationComplete", timeoutMs:600000 }   // Roslyn: projects finished loading
 7. open a document then send feature requests (textDocument/hover, definition, completion, ...).
 Use get_messages to read logs / $/progress / diagnostics that arrive asynchronously.
 File paths MUST be file:// URIs. Notifications get no response; requests do (lsp_request waits).`;
@@ -79,10 +79,10 @@ function buildMessagesQuery(input) {
 const session = await joinSession({
     canvases: [
         createCanvas({
-            id: "roslyn-lsp-tester",
-            displayName: "Roslyn LSP Tester",
+            id: "lspeek-canvas",
+            displayName: "lspeek Canvas",
             description:
-                "Launch and interactively drive a live Roslyn language server (any local build) over LSP. " +
+                "Launch and interactively drive a live LSP server (any language server, e.g. a local Roslyn build) over LSP. " +
                 "Send arbitrary messages, await responses, stream every frame to a clickable canvas, and read async notifications.",
             inputSchema: {
                 type: "object",
@@ -101,14 +101,14 @@ const session = await joinSession({
                 {
                     name: "start_server",
                     description:
-                        "Resolve and spawn the Roslyn language server (dotnet <Microsoft.CodeAnalysis.LanguageServer.dll> --stdio ...). " +
-                        "Replaces any running server for this instance. serverPath may be a repo root/worktree (we search artifacts/bin), " +
-                        "an output dir, or a full path to the dll. Alternatively pass server:'roslyn' (released package) or a server-config JSON path.",
+                        "Resolve and spawn an LSP server (e.g. <command> --stdio). " +
+                        "Replaces any running server for this instance. For a Roslyn build, serverPath may be a repo root/worktree (we search artifacts/bin), " +
+                        "an output dir, or a full path to the server dll. Alternatively pass server:'roslyn' (released package) or a server-config JSON path for any LSP server.",
                     inputSchema: {
                         type: "object",
                         properties: {
-                            serverPath: { type: "string", description: "Repo root / worktree, output dir, or full path to Microsoft.CodeAnalysis.LanguageServer.dll." },
-                            server: { type: "string", description: "Built-in server name (e.g. 'roslyn') or a path to a server-config JSON file. Alternative to serverPath." },
+                            serverPath: { type: "string", description: "Repo root / worktree, output dir, or full path to the server dll (e.g. Microsoft.CodeAnalysis.LanguageServer.dll for a Roslyn build)." },
+                            server: { type: "string", description: "Built-in server name (e.g. 'roslyn') or a path to a server-config JSON file for any LSP server. Alternative to serverPath." },
                             repoRoot: { type: "string", description: "Alternative to serverPath: a repo root/worktree to search under artifacts/bin." },
                             configuration: { type: "string", description: "Preferred build configuration when searching (Debug/Release). Default: newest." },
                             logLevel: { type: "string", enum: ["Trace", "Debug", "Information", "Warning", "Error", "None"], description: "Server --logLevel. Default Information." },
@@ -170,7 +170,7 @@ const session = await joinSession({
                     name: "lsp_request",
                     description:
                         "Send an LSP request and WAIT for its response. Returns { result } or { error }. Use for initialize, " +
-                        "textDocument/hover, definition, completion, references, workspace/_roslyn_restore, etc.",
+                        "textDocument/hover, definition, completion, references, etc.",
                     inputSchema: {
                         type: "object",
                         properties: {
@@ -336,7 +336,7 @@ const session = await joinSession({
                 },
                 {
                     name: "help",
-                    description: "Return a concise cheat-sheet for driving the Roslyn language server through this canvas.",
+                    description: "Return a concise cheat-sheet for driving an LSP server through this canvas.",
                     inputSchema: { type: "object", properties: {} },
                     handler: async () => ok({ help: HELP }),
                 },
@@ -347,14 +347,14 @@ const session = await joinSession({
                     backend = await ensureBackend(ctx.instanceId);
                 } catch (err) {
                     return {
-                        title: "Roslyn LSP Tester",
+                        title: "lspeek Canvas",
                         status: `backend unavailable: ${String(err && err.message ? err.message : err)}`,
                     };
                 }
                 const input = ctx.input || {};
                 if (input.autoStart && (input.serverPath || input.repoRoot || input.server)) {
                     backend.post("/api/start", input).catch((err) => {
-                        session.log(`Roslyn LSP Tester: auto-start failed: ${err.message || err}`, { level: "warning" }).catch(() => {});
+                        session.log(`lspeek Canvas: auto-start failed: ${err.message || err}`, { level: "warning" }).catch(() => {});
                     });
                 }
                 let status;
@@ -364,7 +364,7 @@ const session = await joinSession({
                     status = { status: "stopped" };
                 }
                 return {
-                    title: "Roslyn LSP Tester",
+                    title: "lspeek Canvas",
                     url: backend.baseUrl,
                     status: status.status === "running" ? `running (pid ${status.pid})` : status.status,
                 };
@@ -397,4 +397,4 @@ process.on("SIGINT", () => {
     process.exit(0);
 });
 
-await session.log("Roslyn LSP Tester canvas ready.").catch(() => {});
+await session.log("lspeek Canvas ready.").catch(() => {});

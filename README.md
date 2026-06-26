@@ -10,7 +10,7 @@ drive that backend over a local HTTP + Server-Sent-Events API on `127.0.0.1`:
 
 - **TUI** (`lspeek`) — a [Spectre.Console](https://spectreconsole.net/) terminal UI.
 - **MCP server** (`lspeek-mcp`) — exposes the backend as agent-callable [MCP](https://modelcontextprotocol.io/) tools.
-- **Canvas extension** (`roslyn-lsp-tester`) — a GitHub Copilot CLI canvas with a clickable timeline.
+- **Canvas extension** (`lspeek-canvas`) — a GitHub Copilot CLI canvas with a clickable timeline.
 
 Every frontend spawns its **own private backend** (one live server per TUI/MCP process and per canvas
 `instanceId`); they don't share a session. The three frontends expose the **same action surface**, so
@@ -22,7 +22,7 @@ the server is driven the same way regardless of which you use.
 flowchart LR
     TUI["lspeek (TUI)"] -->|HTTP + SSE| BE
     MCP["lspeek-mcp (MCP)"] -->|HTTP + SSE| BE
-    CANVAS["roslyn-lsp-tester (canvas)"] -->|HTTP + SSE| BE
+    CANVAS["lspeek-canvas (canvas)"] -->|HTTP + SSE| BE
     BE["lspeek-http<br/>(HTTP+SSE host)"] -->|stdio JSON-RPC| LSP["language server<br/>(e.g. Roslyn)"]
 ```
 
@@ -33,8 +33,9 @@ flowchart LR
 | Backend host | `src/Client.Backend` | The `lspeek-http` exe: a minimal-API HTTP+SSE host that owns the server lifecycle and serves the web UI. |
 | TUI | `src/Client.Tui` | The `lspeek` dotnet tool. |
 | MCP server | `src/Client.Mcp` | The `lspeek-mcp` stdio server; one tool per backend action. |
-| Canvas | `.github/extensions/roslyn-lsp-tester` | Thin JS client that spawns the backend and proxies actions; the backend serves its UI. |
-| Skill | `skills/roslyn-lsp-control` | How-to for driving a Roslyn server through any of the three frontends. |
+| Canvas | `.github/extensions/lspeek-canvas` | Thin JS client that spawns the backend and proxies actions; the backend serves its UI. |
+| Skill (generic) | `skills/lspeek-control` | How-to for driving any LSP server through the three frontends (shared action API + handshake). |
+| Skill (Roslyn) | `skills/roslyn-lspeek` | Roslyn-specific how-to: resolving a local build, loading solutions/projects, pull diagnostics. |
 
 ## The action surface
 
@@ -55,9 +56,10 @@ canvas calls them via `invoke_canvas_action`; the TUI maps its UI / JSON scripts
 | `clear_messages` | Clear the buffer (server keeps running). |
 | `help` | Built-in cheat-sheet. |
 
-See [`skills/roslyn-lsp-control/SKILL.md`](skills/roslyn-lsp-control/SKILL.md) for the full
-message-composition guide (initialize handshake, loading projects, reading diagnostics/progress,
-gotchas).
+See [`skills/lspeek-control/SKILL.md`](skills/lspeek-control/SKILL.md) for the full
+message-composition guide (initialize handshake, loading the workspace, reading diagnostics/progress,
+gotchas), and [`skills/roslyn-lspeek/SKILL.md`](skills/roslyn-lspeek/SKILL.md) for Roslyn-specific
+local-build details.
 
 ## Installing
 
@@ -96,7 +98,7 @@ The canvas extension can't bundle a .NET app, so it uses the in-repo dev build, 
 **`dotnet dnx lspeek-http`** — fetching the published backend tool from NuGet (a self-contained,
 ReadyToRun, platform-specific build for every supported RID; cached after first run) so it works
 off-repo with only the .NET SDK installed. See
-[the canvas section](#canvas-extension-roslyn-lsp-tester) for details.
+[the canvas section](#canvas-extension-lspeek-canvas) for details.
 
 Set `LSPEEK_HTTP` to override discovery for the .NET frontends (TUI, MCP) — e.g. point them at one
 freshly built backend while iterating on it.
@@ -136,13 +138,13 @@ stdout is reserved for the MCP protocol; logs go to stderr.
 
 Each tool returns a JSON envelope: `{ ok:true, ... }` on success or `{ ok:false, error }` on failure.
 
-## Canvas extension (`roslyn-lsp-tester`)
+## Canvas extension (`lspeek-canvas`)
 
 A GitHub Copilot CLI canvas that spawns the backend, proxies every action over HTTP, and shows the
 backend's web UI (a clickable timeline of all traffic with a manual JSON send box). It lives in this
-repo under [`.github/extensions/roslyn-lsp-tester`](.github/extensions/roslyn-lsp-tester), so the
+repo under [`.github/extensions/lspeek-canvas`](.github/extensions/lspeek-canvas), so the
 Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
-`list_canvas_capabilities(canvasId:"roslyn-lsp-tester")`, then `open_canvas` and drive it with
+`list_canvas_capabilities(canvasId:"lspeek-canvas")`, then `open_canvas` and drive it with
 `invoke_canvas_action({ instanceId, actionName, input })`.
 
 ### Running off-repo (no local build)
@@ -222,9 +224,10 @@ src/
   Client.Tui/         lspeek: terminal UI
   Client.Mcp/         lspeek-mcp: MCP stdio server
 .github/extensions/
-  roslyn-lsp-tester/  canvas extension (thin client over the backend)
+  lspeek-canvas/      canvas extension (thin client over the backend)
 skills/
-  roslyn-lsp-control/ how-to skill for driving a Roslyn server
+  lspeek-control/     how-to skill for driving any LSP server (generic)
+  roslyn-lspeek/      Roslyn-specific how-to (local builds, project loading)
 tests/
   Tests.Integration/  raw-client, message-buffer, and surface-parity tests
 ```
