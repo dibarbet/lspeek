@@ -50,9 +50,8 @@ var indexHtml = LoadIndexHtml();
 
 // ── helpers ────────────────────────────────────────────────────────────────
 static BackendInstance Inst(HttpContext http, InstanceManager mgr) => mgr.Get(http.Request.Query["instance"]);
-static IResult Fail(Exception ex) => Results.Json(new ErrorResponse { Error = ex.Message }, BackendJsonContext.Default.ErrorResponse, statusCode: 400);
 
-// ── UI + state ───────────────────────────────────────────────────────────────
+// ── UI ─────────────────────────────────────────────────────────────────────
 app.MapGet("/", (HttpContext http) =>
 {
     var instanceId = http.Request.Query["instance"].ToString();
@@ -62,7 +61,12 @@ app.MapGet("/", (HttpContext http) =>
     return Results.Content(html, "text/html; charset=utf-8");
 });
 
-app.MapGet("/api/state", (HttpContext http) =>
+// All /api endpoints share one error-handling filter (ApiExceptionFilter) that maps any thrown
+// exception to the right status code + ErrorResponse envelope, so each handler is just its happy path.
+var api = app.MapGroup("/api").AddEndpointFilter(ApiExceptionFilter.InvokeAsync);
+
+// ── state ──────────────────────────────────────────────────────────────────
+api.MapGet("/state", (HttpContext http) =>
 {
     var instance = Inst(http, manager);
     return Results.Json(new InstanceState
@@ -73,63 +77,48 @@ app.MapGet("/api/state", (HttpContext http) =>
     }, BackendJsonContext.Default.InstanceState);
 });
 
-app.MapGet("/api/status", (HttpContext http) => Results.Json(Inst(http, manager).SnapshotStatus(), BackendJsonContext.Default.ServerStatus));
+api.MapGet("/status", (HttpContext http) => Results.Json(Inst(http, manager).SnapshotStatus(), BackendJsonContext.Default.ServerStatus));
 
 // ── server lifecycle ─────────────────────────────────────────────────────────
-app.MapPost("/api/start", async (HttpContext http, StartServerRequest? body) =>
-{
-    try { return Results.Json(await Inst(http, manager).StartAsync(body ?? new StartServerRequest()), BackendJsonContext.Default.StartServerResponse); }
-    catch (Exception ex) { return Fail(ex); }
-});
+api.MapPost("/start", async (HttpContext http, StartServerRequest? body) =>
+    Results.Json(await Inst(http, manager).StartAsync(body ?? new StartServerRequest()), BackendJsonContext.Default.StartServerResponse));
 
-app.MapPost("/api/stop", async (HttpContext http) =>
+api.MapPost("/stop", async (HttpContext http) =>
 {
-    try { await Inst(http, manager).StopAsync(); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
-    catch (Exception ex) { return Fail(ex); }
+    await Inst(http, manager).StopAsync();
+    return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse);
 });
 
 // ── LSP traffic ──────────────────────────────────────────────────────────────
-app.MapPost("/api/request", async (HttpContext http, LspRequestInput body) =>
+api.MapPost("/request", async (HttpContext http, LspRequestInput body) =>
+    Results.Json(await Inst(http, manager).RequestAsync(body), BackendJsonContext.Default.LspRequestResult));
+
+api.MapPost("/notify", (HttpContext http, LspNotifyInput body) =>
 {
-    try { return Results.Json(await Inst(http, manager).RequestAsync(body), BackendJsonContext.Default.LspRequestResult); }
-    catch (Exception ex) { return Fail(ex); }
+    Inst(http, manager).Notify(body);
+    return Results.Json(new OkResponse { Sent = body.Method }, BackendJsonContext.Default.OkResponse);
 });
 
-app.MapPost("/api/notify", (HttpContext http, LspNotifyInput body) =>
-{
-    try { Inst(http, manager).Notify(body); return Results.Json(new OkResponse { Sent = body.Method }, BackendJsonContext.Default.OkResponse); }
-    catch (Exception ex) { return Fail(ex); }
-});
+api.MapPost("/send-raw", async (HttpContext http, SendRawInput body) =>
+    Results.Json(await Inst(http, manager).SendRawAsync(body), BackendJsonContext.Default.SendRawResult));
 
-app.MapPost("/api/send-raw", async (HttpContext http, SendRawInput body) =>
+api.MapPost("/respond", (HttpContext http, RespondInput body) =>
 {
-    try { return Results.Json(await Inst(http, manager).SendRawAsync(body), BackendJsonContext.Default.SendRawResult); }
-    catch (Exception ex) { return Fail(ex); }
-});
-
-app.MapPost("/api/respond", (HttpContext http, RespondInput body) =>
-{
-    try { Inst(http, manager).Respond(body); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
-    catch (Exception ex) { return Fail(ex); }
+    Inst(http, manager).Respond(body);
+    return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse);
 });
 
 // ── message buffer ──────────────────────────────────────────────────────────
-app.MapGet("/api/messages", (HttpContext http) =>
-{
-    try { return Results.Json(Inst(http, manager).GetMessages(BuildMessagesQuery(http.Request)), BackendJsonContext.Default.GetMessagesResult); }
-    catch (Exception ex) { return Fail(ex); }
-});
+api.MapGet("/messages", (HttpContext http) =>
+    Results.Json(Inst(http, manager).GetMessages(BuildMessagesQuery(http.Request)), BackendJsonContext.Default.GetMessagesResult));
 
-app.MapPost("/api/wait", async (HttpContext http, WaitForMessageInput body) =>
-{
-    try { return Results.Json(await Inst(http, manager).WaitAsync(body), BackendJsonContext.Default.WaitForMessageResult); }
-    catch (Exception ex) { return Fail(ex); }
-});
+api.MapPost("/wait", async (HttpContext http, WaitForMessageInput body) =>
+    Results.Json(await Inst(http, manager).WaitAsync(body), BackendJsonContext.Default.WaitForMessageResult));
 
-app.MapPost("/api/clear", (HttpContext http) =>
+api.MapPost("/clear", (HttpContext http) =>
 {
-    try { Inst(http, manager).Clear(); return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse); }
-    catch (Exception ex) { return Fail(ex); }
+    Inst(http, manager).Clear();
+    return Results.Json(new OkResponse(), BackendJsonContext.Default.OkResponse);
 });
 
 // ── SSE ──────────────────────────────────────────────────────────────────────
