@@ -33,22 +33,53 @@ public class TuiHost
     /// </summary>
     public async Task RunAsync<TInitialView>(object? args = null) where TInitialView : ITuiView
     {
-        AnsiConsole.Clear();
-        var initialView = CreateView(typeof(TInitialView));
-        initialView.OnEnter(args);
-        _viewStack.Push(initialView);
-
-        // Fire-and-forget auto-initialize so it happens inside the TUI
-        if (_store.AutoInit && !_store.IsInitialized)
+        EnterAltScreen();
+        try
         {
-            _ = _store.InitializeAsync();
-        }
+            AnsiConsole.Clear();
+            var initialView = CreateView(typeof(TInitialView));
+            initialView.OnEnter(args);
+            _viewStack.Push(initialView);
 
-        while (!_store.CancellationToken.IsCancellationRequested && _viewStack.Count > 0)
-        {
-            Render();
-            await HandleInputAsync();
+            // Fire-and-forget auto-initialize so it happens inside the TUI
+            if (_store.AutoInit && !_store.IsInitialized)
+            {
+                _ = _store.InitializeAsync();
+            }
+
+            while (!_store.CancellationToken.IsCancellationRequested && _viewStack.Count > 0)
+            {
+                Render();
+                await HandleInputAsync();
+            }
         }
+        finally
+        {
+            ExitAltScreen();
+        }
+    }
+
+    /// <summary>
+    /// Switches to the terminal's alternate screen buffer. The alt buffer has no
+    /// scrollback, so the full-screen redraws never leak into the user's terminal
+    /// history. Crucially, resizing the window reflows only the alt buffer instead
+    /// of pushing stale partial frames into the main scrollback (the artifacts you
+    /// could otherwise scroll up to see). On exit the original terminal contents
+    /// are restored. Terminals that don't support the mode ignore the sequence.
+    /// </summary>
+    private static void EnterAltScreen()
+    {
+        Console.Write("\x1b[?1049h");
+    }
+
+    /// <summary>
+    /// Leaves the alternate screen buffer and restores cursor visibility. Safe to
+    /// call more than once; a second invocation is a no-op on the terminal.
+    /// </summary>
+    private static void ExitAltScreen()
+    {
+        Console.Write("\x1b[?1049l");
+        Console.CursorVisible = true;
     }
 
     private void Render()
@@ -250,7 +281,9 @@ public class TuiHost
                 break;
 
             case Navigation.ExitApp:
-                AnsiConsole.Clear();
+                // Leave the alt screen first so the shutdown messages appear in
+                // the user's normal terminal and persist after the TUI exits.
+                ExitAltScreen();
                 AnsiConsole.MarkupLine("[dim]Shutting down...[/]");
                 await _store.ShutdownAsync();
                 AnsiConsole.MarkupLine("[green]Session ended.[/]");
