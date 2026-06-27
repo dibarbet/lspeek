@@ -140,16 +140,17 @@ public class MessageListView : ITuiView
             {
                 var lineCount = msg.StderrLines.Count;
                 var preview = msg.StderrLines.FirstOrDefault() ?? "";
-                if (preview.Length > 60) preview = preview[..60] + "…";
+                var width = LabelWidthFor(ctx.TermWidth);
+                var padded = Truncate(preview, width).PadRight(width);
                 ctx.WritePaddedLine(
-                    $"  {selector} [{highlight}]{time}  !!  [red]{Markup.Escape(preview),-40}[/][/] [red]{lineCount} line{(lineCount == 1 ? "" : "s")}[/]");
+                    $"  {selector} [{highlight}]{time}  !![/]  [red]{Markup.Escape(padded)}[/] [red]{lineCount} line{(lineCount == 1 ? "" : "s")}[/]");
             }
             else
             {
                 var arrow = msg.IsSent ? "->" : "<-";
                 var statusLabel = MessageStatusStyles.Label(msg.Status);
                 var statusColor = MessageStatusStyles.Color(msg.Status);
-                var label = BuildLabelMarkup(msg.Method, msg.Detail, highlight, LabelWidth);
+                var label = BuildLabelMarkup(msg.Method, msg.Detail, highlight, LabelWidthFor(ctx.TermWidth));
                 ctx.WritePaddedLine(
                     $"  {selector} [{highlight}]{time}  {arrow}[/]  {label} [{statusColor}]{statusLabel}[/]");
             }
@@ -165,13 +166,33 @@ public class MessageListView : ITuiView
         return linesRendered;
     }
 
-    /// <summary>Width of the method/detail column, padded so the status label stays aligned.</summary>
-    private const int LabelWidth = 48;
+    /// <summary>
+    /// Visible columns to the left of the method/detail column:
+    /// <c>"  &gt; HH:mm:ss  &lt;-  "</c> (2 indent + 1 selector + 1 space + 8 time + 2 + 2 arrow + 2).
+    /// </summary>
+    private const int RowPrefixWidth = 18;
+
+    /// <summary>Columns reserved to the right of the label: a space plus the widest status word.</summary>
+    private const int RowStatusReserve = 9;
+
+    /// <summary>
+    /// Upper bound on the method/detail column. The backend already truncates a detail to ~100 chars,
+    /// so growing past this only adds trailing blanks on very wide terminals while keeping the status
+    /// column from drifting to the far edge.
+    /// </summary>
+    private const int MaxLabelWidth = 140;
+
+    /// <summary>
+    /// Width of the method/detail column, grown to fill the terminal so details aren't clipped on
+    /// wide windows, clamped to <see cref="MaxLabelWidth"/> so the trailing status stays aligned.
+    /// </summary>
+    private static int LabelWidthFor(int termWidth)
+        => Math.Min(MaxLabelWidth, Math.Max(10, termWidth - RowPrefixWidth - RowStatusReserve));
 
     /// <summary>
     /// Builds the markup for the method/detail column: the method in the row's highlight style
     /// followed by an optional muted <c>: detail</c>, truncated and space-padded to
-    /// <see cref="LabelWidth"/> so the trailing status column lines up across rows.
+    /// <paramref name="width"/> so the trailing status column lines up across rows.
     /// </summary>
     private static string BuildLabelMarkup(string method, string? detail, string highlight, int width)
     {
