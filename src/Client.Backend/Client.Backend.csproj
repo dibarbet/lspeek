@@ -43,12 +43,25 @@
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
 
     <!--
-      Per-RID payload builds are self-contained, ReadyToRun, and trimmed. These take effect only for
-      RID-specific publishes; the no-RID routing manifest and local `dotnet build`/`dotnet test` stay
-      a plain framework-dependent managed build.
+      Per-RID payload builds are self-contained, ReadyToRun, and trimmed. SelfContained and
+      PublishTrimmed take effect only for RID-specific publishes; the no-RID routing manifest and
+      local `dotnet build`/`dotnet test` stay a plain framework-dependent managed build.
+
+      PublishReadyToRun is intentionally NOT conditioned on the RID. R2R only *executes* during a
+      RID-specific self-contained publish (the SDK's CreateReadyToRunImages target runs only in the
+      publish pipeline, never during `dotnet build`/`dotnet test`), so leaving it on doesn't change
+      local builds. But the property must be true during the single, RID-agnostic top-level restore:
+      that's when the SDK adds the crossgen2 compiler pack to the restore graph for the RIDs. The
+      inner per-RID payload publishes run without restoring (the SDK reuses the top-level restore),
+      so everything they need (runtime packs, ILLink, crossgen2) must already be restored.
+      Conditioning PublishReadyToRun on '$(RuntimeIdentifier)' != '' makes it false at restore time,
+      so crossgen2 is never restored and the per-RID R2R publish fails on a clean machine with
+      NETSDK1094 ("a valid runtime package was not found") - which only reproduces in CI, since a
+      populated local NuGet cache hides it. This mirrors how the unconditional IsAotCompatible below
+      keeps the ILLink pack restored.
     -->
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <PublishTrimmed Condition="'$(RuntimeIdentifier)' != ''">true</PublishTrimmed>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--
