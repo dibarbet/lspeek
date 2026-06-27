@@ -28,13 +28,21 @@
           managed build.
         * RuntimeIdentifiers (plural) makes a single `restore` produce assets for every RID, so the
           SDK's per-RID pack recursion finds them (no per-RID restore needed).
-        * SelfContained / PublishReadyToRun apply only to the RID-specific payload builds (the runtime
-          ships in the payload); the no-RID manifest build stays framework-dependent and lightweight.
+        * SelfContained applies only to the RID-specific payload builds (the runtime ships in the
+          payload); the no-RID manifest build stays framework-dependent and lightweight.
+        * PublishReadyToRun is intentionally left unconditional. R2R only *executes* during a
+          RID-specific publish (the SDK's CreateReadyToRunImages target runs only in the publish
+          pipeline, never during `dotnet build`/`dotnet test`), but the property must be true during
+          the single RID-agnostic restore so the SDK adds the crossgen2 compiler pack to the assets.
+          The per-RID payload publishes reuse that restore without restoring again, so gating
+          PublishReadyToRun on a RID makes restore skip crossgen2 and the payload publish then fails
+          with NETSDK1094 ("a valid runtime package was not found") on a clean machine (a populated
+          local NuGet cache hides it, so it only reproduces in CI).
     -->
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
