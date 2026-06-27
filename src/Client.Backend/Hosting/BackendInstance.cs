@@ -293,7 +293,7 @@ public sealed class BackendInstance : IAsyncDisposable
     // ── event handlers ───────────────────────────────────────────────────────
 
     private void OnObserved(ObservedMessage m)
-        => Buffer.Add(m.Direction, m.Kind, m.Method, m.Id, m.Summary, m.Payload);
+        => Buffer.Add(m.Direction, m.Kind, m.Method, m.Id, m.Summary, m.Payload, m.Detail);
 
     private void OnStderr(string line)
     {

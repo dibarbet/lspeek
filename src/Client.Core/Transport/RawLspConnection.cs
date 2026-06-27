@@ -8,7 +8,8 @@ namespace Lspeek.Core.Transport;
 /// <summary>
 /// An observed JSON-RPC frame in either direction. Mirrors the canvas client's record shape:
 /// direction (send/recv/meta), kind (request/response/notification/error/stderr/info/batch),
-/// method, id, a short summary, and the full payload.
+/// method, id, a short summary, an optional human-friendly <see cref="Detail"/>, and the full
+/// payload.
 /// </summary>
 public sealed record ObservedMessage(
     string Direction,
@@ -16,7 +17,8 @@ public sealed record ObservedMessage(
     string? Method,
     JsonElement? Id,
     string Summary,
-    JsonElement? Payload);
+    JsonElement? Payload,
+    string? Detail = null);
 
 /// <summary>
 /// Low-level LSP wire client over Content-Length framed JSON-RPC. Mirrors the canvas
@@ -348,7 +350,9 @@ public sealed class RawLspConnection : IAsyncDisposable
     }
 
     private void Emit(string direction, string kind, string? method, JsonElement? id, string summary, JsonElement? payload)
-        => MessageObserved?.Invoke(new ObservedMessage(direction, kind, method, id, summary, payload));
+        => MessageObserved?.Invoke(new ObservedMessage(
+            direction, kind, method, id, summary, payload,
+            Lspeek.Core.Session.LspDisplayDetail.Describe(kind, method, payload)));
 
     private void FailAllPending(Exception ex)
     {

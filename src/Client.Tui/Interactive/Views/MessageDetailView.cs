@@ -168,7 +168,8 @@ public class MessageDetailView : ITuiView
         ctx.WritePaddedLine($"  [bold]Time:[/] {time}  [bold]Direction:[/] {arrow}  [bold]Type:[/] {typeLabel}  [bold]Status:[/] [{statusColor}]{MessageStatusStyles.Label(msg.Status)}[/]");
         linesRendered++;
         var idLabel = msg.Id.HasValue ? $"  [bold]Id:[/] {msg.Id.Value}" : "";
-        ctx.WritePaddedLine($"  [bold]Method:[/] {Markup.Escape(msg.Method)}{idLabel}");
+        var detailLabel = string.IsNullOrEmpty(msg.Detail) ? "" : $"  [grey]{Markup.Escape(msg.Detail)}[/]";
+        ctx.WritePaddedLine($"  [bold]Method:[/] {Markup.Escape(msg.Method)}{idLabel}{detailLabel}");
         linesRendered++;
 
         if (msg.Body.HasValue)
