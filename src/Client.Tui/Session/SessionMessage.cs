@@ -36,6 +36,13 @@ public class SessionMessage
     public int? Id { get; init; }
 
     /// <summary>
+    /// Optional human-friendly one-line detail for the method (e.g. <c>From File.cs:58:15</c>),
+    /// projected from the wire record. Null when no nicer rendering applies — callers then show
+    /// just the method name.
+    /// </summary>
+    public string? Detail { get; init; }
+
+    /// <summary>
     /// The inner request <c>params</c> / response <c>result</c> or <c>error</c> object, surfaced for
     /// display and status computation. Null for stderr entries.
     /// </summary>
@@ -125,6 +132,7 @@ public class SessionMessage
             Kind = kind,
             Method = method,
             Id = IdToInt(record.Id),
+            Detail = string.IsNullOrEmpty(record.Detail) ? null : record.Detail,
             Body = body,
             Timestamp = ParseTime(record.Time),
         };

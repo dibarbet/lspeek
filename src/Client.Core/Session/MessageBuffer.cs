@@ -34,7 +34,7 @@ public sealed class MessageBuffer
         get { lock (_lock) return _records.Count > 0 ? _records[^1].Seq : 0; }
     }
 
-    public LspMessageRecord Add(string direction, string kind, string? method, JsonElement? id, string summary, JsonElement? payload)
+    public LspMessageRecord Add(string direction, string kind, string? method, JsonElement? id, string summary, JsonElement? payload, string? detail = null)
     {
         LspMessageRecord record;
         List<Waiter>? matched = null;
@@ -50,6 +50,7 @@ public sealed class MessageBuffer
                 Method = method,
                 Id = id,
                 Summary = summary,
+                Detail = detail,
                 Payload = payload,
             };
             _records.Add(record);
@@ -192,6 +193,7 @@ public sealed class MessageBuffer
         Method = m.Method,
         Id = m.Id,
         Summary = m.Summary,
+        Detail = m.Detail,
         Payload = null,
     };
 

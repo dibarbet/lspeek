@@ -47,6 +47,7 @@
   .dir.meta { color: var(--meta); }
   .seq { color: var(--muted); }
   .time { color: var(--muted); }
+  .detail { color: var(--muted); }
   .kind { color: var(--accent); }
   .kind.stderr { color: var(--err); }
   .kind.error { color: var(--red); }
@@ -165,6 +166,12 @@ function rowLabel(m) {
   return m.method || m.summary || "";
 }
 
+// An opt-in, human-friendly one-liner (e.g. "From File.cs:58:15") the backend computes for some
+// methods. Rendered muted after the method so the row reads "<method>: <detail>" at a glance.
+function rowDetailHtml(m) {
+  return m.detail ? ' <span class="detail">' + escapeHtml(m.detail) + '</span>' : '';
+}
+
 function makeRow(m) {
   const tr = document.createElement("tr");
   tr.className = "k-" + (m.kind || "");
@@ -174,7 +181,7 @@ function makeRow(m) {
     '<td class="time">' + (m.time ? m.time.slice(11, 23) : "") + '</td>' +
     '<td class="dir ' + m.direction + '">' + dirGlyph(m.direction) + '</td>' +
     '<td class="kind ' + (m.kind || "") + '">' + (m.kind || "") + '</td>' +
-    '<td class="sum">' + escapeHtml(rowLabel(m)) + '</td>';
+    '<td class="sum">' + escapeHtml(rowLabel(m)) + rowDetailHtml(m) + '</td>';
   tr.addEventListener("click", () => select(m.seq));
   return tr;
 }
@@ -206,7 +213,9 @@ function select(seq) {
   const m = bySeq.get(seq);
   if (!m) return;
   $("detailTitle").textContent =
-    dirGlyph(m.direction) + " " + (m.method || m.kind) + (m.id !== undefined ? "  (id " + JSON.stringify(m.id) + ")" : "");
+    dirGlyph(m.direction) + " " + (m.method || m.kind) +
+    (m.id !== undefined ? "  (id " + JSON.stringify(m.id) + ")" : "") +
+    (m.detail ? "  —  " + m.detail : "");
   const payload = m.payload;
   $("detail").innerHTML = typeof payload === "string" ? escapeHtml(payload) : highlight(payload);
 }

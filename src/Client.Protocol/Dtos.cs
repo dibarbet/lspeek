@@ -29,6 +29,13 @@ public sealed class LspMessageRecord
     /// <summary>Short human-readable summary of the record.</summary>
     public string Summary { get; set; } = "";
 
+    /// <summary>
+    /// Optional human-friendly one-line detail for the method, surfaced so the log can read
+    /// <c>method: detail</c> at a glance (e.g. <c>textDocument/definition: From File.cs:58:15</c>).
+    /// Null when no nicer rendering applies; callers fall back to the bare method name.
+    /// </summary>
+    public string? Detail { get; set; }
+
     /// <summary>Full JSON payload (the wire message, a string for stderr, or structured info).</summary>
     public JsonElement? Payload { get; set; }
 }

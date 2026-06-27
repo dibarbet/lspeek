@@ -2,6 +2,7 @@ using Lspeek.Tui.Presentation;
 using Lspeek.Tui.Session;
 using Lspeek.Tui.Interactive.Framework;
 using Spectre.Console;
+using System.Text;
 
 namespace Lspeek.Tui.Interactive.Views;
 
@@ -148,8 +149,9 @@ public class MessageListView : ITuiView
                 var arrow = msg.IsSent ? "->" : "<-";
                 var statusLabel = MessageStatusStyles.Label(msg.Status);
                 var statusColor = MessageStatusStyles.Color(msg.Status);
+                var label = BuildLabelMarkup(msg.Method, msg.Detail, highlight, LabelWidth);
                 ctx.WritePaddedLine(
-                    $"  {selector} [{highlight}]{time}  {arrow}  {Markup.Escape(msg.Method),-40}[/] [{statusColor}]{statusLabel}[/]");
+                    $"  {selector} [{highlight}]{time}  {arrow}[/]  {label} [{statusColor}]{statusLabel}[/]");
             }
             linesRendered++;
         }
@@ -161,6 +163,56 @@ public class MessageListView : ITuiView
         }
 
         return linesRendered;
+    }
+
+    /// <summary>Width of the method/detail column, padded so the status label stays aligned.</summary>
+    private const int LabelWidth = 48;
+
+    /// <summary>
+    /// Builds the markup for the method/detail column: the method in the row's highlight style
+    /// followed by an optional muted <c>: detail</c>, truncated and space-padded to
+    /// <see cref="LabelWidth"/> so the trailing status column lines up across rows.
+    /// </summary>
+    private static string BuildLabelMarkup(string method, string? detail, string highlight, int width)
+    {
+        method ??= "";
+        detail ??= "";
+
+        string methodVisible;
+        string detailVisible;
+
+        if (method.Length >= width || detail.Length == 0)
+        {
+            methodVisible = Truncate(method, width);
+            detailVisible = "";
+        }
+        else
+        {
+            methodVisible = method;
+            // 2 columns are taken by the ": " separator.
+            var remaining = width - method.Length - 2;
+            detailVisible = remaining <= 1 ? "" : Truncate(detail, remaining);
+        }
+
+        var visibleLen = methodVisible.Length + (detailVisible.Length > 0 ? 2 + detailVisible.Length : 0);
+        var pad = Math.Max(0, width - visibleLen);
+
+        var sb = new StringBuilder();
+        sb.Append('[').Append(highlight).Append(']').Append(Markup.Escape(methodVisible)).Append("[/]");
+        if (detailVisible.Length > 0)
+            sb.Append("[grey]: ").Append(Markup.Escape(detailVisible)).Append("[/]");
+        if (pad > 0)
+            sb.Append(new string(' ', pad));
+        return sb.ToString();
+    }
+
+    private static string Truncate(string value, int width)
+    {
+        if (width <= 0)
+            return "";
+        if (value.Length <= width)
+            return value;
+        return width == 1 ? "…" : value[..(width - 1)] + "…";
     }
 
     private void ExportSession()
