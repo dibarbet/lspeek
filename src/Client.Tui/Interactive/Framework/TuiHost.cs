@@ -56,6 +56,13 @@ public class TuiHost
         if (_viewStack.Count == 0) return;
 
         Console.CursorVisible = false;
+
+        // Begin a synchronized terminal update (DEC mode 2026) so the whole frame
+        // is presented atomically. Without this, the full-screen redraw clears the
+        // progress overlay region (via the views' \x1b[K) before repainting it on
+        // top, which the terminal shows as a flicker. Terminals that don't support
+        // the mode simply ignore these sequences.
+        Console.Write("\x1b[?2026h");
         Console.SetCursorPosition(0, 0);
 
         var ctx = new RenderContext(Console.WindowWidth, Console.WindowHeight);
@@ -67,6 +74,9 @@ public class TuiHost
 
         // Clear anything below the footer
         Console.Write("\x1b[J");
+
+        // End the synchronized update; the terminal now presents the frame.
+        Console.Write("\x1b[?2026l");
     }
 
     private void RenderHeader(RenderContext ctx)
@@ -152,7 +162,10 @@ public class TuiHost
         Console.Write("\x1b[s"); // save cursor
 
         // Top border
-        var dashes = ProgressPanelWidth - 14; // "┌─ Progress " (12) + "─┐" (2)
+        // Top border. Fixed literal is "┌─ Progress " (12) + "┐" (1) = 13 chars,
+        // so the dash fill is the remaining width to keep the panel exactly
+        // ProgressPanelWidth wide and aligned with the rows below.
+        var dashes = ProgressPanelWidth - 13;
         Console.Write($"\x1b[{startRow};{startCol}H\x1b[36m┌─ Progress {new string('─', dashes)}┐\x1b[0m");
 
         int row = startRow + 1;
