@@ -141,7 +141,9 @@ Each tool returns a JSON envelope: `{ ok:true, ... }` on success or `{ ok:false,
 ## Canvas extension (`lspeek-canvas`)
 
 A GitHub Copilot CLI canvas that spawns the backend, proxies every action over HTTP, and shows the
-backend's web UI (a clickable timeline of all traffic with a manual JSON send box). It lives in this
+backend's web UI (a clickable timeline of all traffic with a manual JSON send box). Timeline rows can
+be selected individually, by Shift-click range, or all at once, then copied or downloaded as a
+Markdown table, detailed Markdown, plain text, or JSON. It lives in this
 repo under [`.github/extensions/lspeek-canvas`](.github/extensions/lspeek-canvas), so the
 Copilot CLI auto-discovers it when working in the repo. Confirm it loaded with
 `list_canvas_capabilities(canvasId:"lspeek-canvas")`, then `open_canvas` and drive it with

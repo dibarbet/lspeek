@@ -34,12 +34,19 @@
   #left { display: flex; flex-direction: column; min-width: 360px; width: 52%; border-right: 1px solid var(--border); }
   #filters { display: flex; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
   #filters label { color: var(--muted); display: flex; gap: 4px; align-items: center; }
+  #selectionBar { display: flex; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; background: var(--panel); }
+  #selectionBar[hidden] { display: none; }
   #listWrap { flex: 1; overflow: auto; }
   table { width: 100%; border-collapse: collapse; }
+  thead { position: sticky; top: 0; z-index: 1; background: var(--panel2); color: var(--muted); text-align: left; }
+  th { padding: 3px 6px; font-weight: 500; border-bottom: 1px solid var(--border); }
   tbody tr { cursor: pointer; border-bottom: 1px solid #2a2a2a; }
   tbody tr:hover { background: #2a2d2e; }
+  tbody tr.export-selected { background: #293b32; }
   tbody tr.sel { background: #04395e; }
   td { padding: 3px 6px; vertical-align: top; white-space: nowrap; }
+  th.pick, td.pick { width: 28px; padding-left: 8px; padding-right: 2px; }
+  th.pick input, td.pick input { margin: 0; vertical-align: middle; }
   td.sum { white-space: normal; word-break: break-word; }
   .dir { font-weight: 700; }
   .dir.send { color: var(--send); }
@@ -104,8 +111,30 @@
       <span class="spacer"></span>
       <label><input type="checkbox" id="fFollow" checked /> follow</label>
     </div>
+    <div id="selectionBar" hidden>
+      <strong id="selectionCount"></strong>
+      <span class="spacer"></span>
+      <select id="exportFormat" aria-label="Export format">
+        <option value="markdown-table">Markdown table</option>
+        <option value="text">Plain text</option>
+        <option value="markdown-detailed">Detailed Markdown</option>
+        <option value="json">JSON</option>
+      </select>
+      <button id="btnExportCopy">Copy</button>
+      <button id="btnExportDownload">Download</button>
+      <button id="btnSelectionClear">Clear selection</button>
+      <span id="exportStatus" class="hint" role="status"></span>
+    </div>
     <div id="listWrap">
-      <table><tbody id="rows"></tbody></table>
+      <table>
+        <thead>
+          <tr>
+            <th class="pick"><input type="checkbox" id="selectVisible" aria-label="Select all visible messages" /></th>
+            <th>Seq</th><th>Time</th><th>Direction</th><th>Kind</th><th>Method / detail</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
     </div>
   </div>
   <div id="right">
@@ -130,12 +159,16 @@
   </div>
 </main>
 
-<script>
+<script type="module">
+import { exportFileName, formatExport, selectedMessages } from "./logExport.mjs";
+
 const INSTANCE = "__INSTANCE_ID__";
 const qs = "?instance=" + encodeURIComponent(INSTANCE);
 const all = [];
 const bySeq = new Map();
 let selected = null;
+const selectedSeqs = new Set();
+let selectionAnchorSeq = null;
 
 const $ = (id) => document.getElementById(id);
 const rowsEl = $("rows");
@@ -176,13 +209,29 @@ function makeRow(m) {
   const tr = document.createElement("tr");
   tr.className = "k-" + (m.kind || "");
   tr.dataset.seq = m.seq;
+  tr.title = "Click to inspect; Shift-click to select a range.";
   tr.innerHTML =
+    '<td class="pick"><input type="checkbox" aria-label="Select message ' + m.seq + '" /></td>' +
     '<td class="seq">' + m.seq + '</td>' +
     '<td class="time">' + (m.time ? m.time.slice(11, 23) : "") + '</td>' +
     '<td class="dir ' + m.direction + '">' + dirGlyph(m.direction) + '</td>' +
     '<td class="kind ' + (m.kind || "") + '">' + (m.kind || "") + '</td>' +
     '<td class="sum">' + escapeHtml(rowLabel(m)) + rowDetailHtml(m) + '</td>';
-  tr.addEventListener("click", () => select(m.seq));
+  const checkbox = tr.querySelector('input[type="checkbox"]');
+  checkbox.checked = selectedSeqs.has(m.seq);
+  checkbox.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMessageSelection(m.seq, checkbox.checked, event.shiftKey);
+  });
+  tr.classList.toggle("export-selected", checkbox.checked);
+  tr.addEventListener("mousedown", (event) => {
+    if (event.button === 0 && event.shiftKey) event.preventDefault();
+  });
+  tr.addEventListener("click", (event) => {
+    if (event.shiftKey) toggleMessageSelection(m.seq, true, true);
+    else selectionAnchorSeq = m.seq;
+    select(m.seq);
+  });
   return tr;
 }
 
@@ -194,6 +243,7 @@ function addMessage(m) {
     if ($("fFollow").checked) $("listWrap").scrollTop = $("listWrap").scrollHeight;
   }
   $("count").textContent = all.length + " msgs";
+  updateSelectionUi();
 }
 
 function rebuild() {
@@ -203,6 +253,54 @@ function rebuild() {
     const r = rowsEl.querySelector('tr[data-seq="' + selected + '"]');
     if (r) r.classList.add("sel");
   }
+  updateSelectionUi();
+}
+
+function visibleMessages() {
+  return all.filter(passesAll);
+}
+
+function toggleMessageSelection(seq, checked, selectRange) {
+  const visible = visibleMessages();
+  const currentIndex = visible.findIndex(message => message.seq === seq);
+  const anchorIndex = visible.findIndex(message => message.seq === selectionAnchorSeq);
+  if (selectRange && currentIndex >= 0 && anchorIndex >= 0) {
+    const first = Math.min(currentIndex, anchorIndex);
+    const last = Math.max(currentIndex, anchorIndex);
+    for (let i = first; i <= last; i++) {
+      if (checked) selectedSeqs.add(visible[i].seq);
+      else selectedSeqs.delete(visible[i].seq);
+    }
+  } else if (checked) {
+    selectedSeqs.add(seq);
+  } else {
+    selectedSeqs.delete(seq);
+  }
+  selectionAnchorSeq = seq;
+  updateSelectionUi();
+}
+
+function updateSelectionUi() {
+  const visible = visibleMessages();
+  let visibleSelected = 0;
+  for (const message of visible) if (selectedSeqs.has(message.seq)) visibleSelected++;
+
+  for (const row of rowsEl.querySelectorAll("tr")) {
+    const isSelected = selectedSeqs.has(Number(row.dataset.seq));
+    row.classList.toggle("export-selected", isSelected);
+    row.querySelector('input[type="checkbox"]').checked = isSelected;
+  }
+
+  const selectVisible = $("selectVisible");
+  selectVisible.checked = visible.length > 0 && visibleSelected === visible.length;
+  selectVisible.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+
+  const total = selectedSeqs.size;
+  const hidden = total - visibleSelected;
+  $("selectionBar").hidden = total === 0;
+  $("selectionCount").textContent =
+    total + " selected" + (hidden > 0 ? " (" + hidden + " hidden)" : "");
+  if (total === 0) $("exportStatus").textContent = "";
 }
 
 function select(seq) {
@@ -257,7 +355,18 @@ function connect() {
   const es = new EventSource("./events" + qs);
   es.addEventListener("message", (e) => addMessage(JSON.parse(e.data)));
   es.addEventListener("status", (e) => setStatus(JSON.parse(e.data)));
-  es.addEventListener("cleared", () => { all.length = 0; bySeq.clear(); rowsEl.textContent = ""; selected = null; $("detail").textContent = ""; });
+  es.addEventListener("cleared", () => {
+    all.length = 0;
+    bySeq.clear();
+    selectedSeqs.clear();
+    rowsEl.textContent = "";
+    selected = null;
+    selectionAnchorSeq = null;
+    $("detailTitle").textContent = "Select a message";
+    $("detail").textContent = "";
+    $("count").textContent = "0 msgs";
+    updateSelectionUi();
+  });
   es.onerror = () => {};
 }
 
@@ -279,11 +388,68 @@ async function doSend(wait) {
 }
 function setSendMsg(t, isErr) { const el = $("sendMsg"); el.textContent = t; el.className = "hint " + (isErr ? "err" : "ok"); }
 
+function exportSelection() {
+  return selectedMessages(all, selectedSeqs);
+}
+
+function setExportStatus(text, isError) {
+  const el = $("exportStatus");
+  el.textContent = text;
+  el.className = "hint " + (isError ? "err" : "ok");
+}
+
+async function copySelection() {
+  try {
+    const messages = exportSelection();
+    const format = $("exportFormat").value;
+    await navigator.clipboard.writeText(formatExport(messages, format));
+    setExportStatus("Copied " + messages.length + " messages.", false);
+  } catch (error) {
+    setExportStatus("Copy failed: " + error.message, true);
+  }
+}
+
+function downloadSelection() {
+  try {
+    const messages = exportSelection();
+    const format = $("exportFormat").value;
+    const blob = new Blob([formatExport(messages, format)], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = exportFileName(format);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setExportStatus("Downloaded " + messages.length + " messages.", false);
+  } catch (error) {
+    setExportStatus("Download failed: " + error.message, true);
+  }
+}
+
 $("btnSend").onclick = () => doSend(false);
 $("btnSendWait").onclick = () => doSend(true);
 $("btnStop").onclick = () => post("./api/stop", {});
 $("btnClear").onclick = () => post("./api/clear", {});
 $("btnCopy").onclick = () => { const m = bySeq.get(selected); if (m) navigator.clipboard.writeText(typeof m.payload === "string" ? m.payload : JSON.stringify(m.payload, null, 2)); };
+$("selectVisible").addEventListener("change", () => {
+  const visible = visibleMessages();
+  const shouldSelect = $("selectVisible").checked;
+  for (const message of visible) {
+    if (shouldSelect) selectedSeqs.add(message.seq);
+    else selectedSeqs.delete(message.seq);
+  }
+  selectionAnchorSeq = null;
+  updateSelectionUi();
+});
+$("btnSelectionClear").onclick = () => {
+  selectedSeqs.clear();
+  selectionAnchorSeq = null;
+  updateSelectionUi();
+};
+$("btnExportCopy").onclick = copySelection;
+$("btnExportDownload").onclick = downloadSelection;
 for (const id of ["fSend", "fRecv", "fStderr", "fMethod"]) $(id).addEventListener("input", rebuild);
 
 $("btnStart").onclick = () => { $("startPanel").style.display = $("startPanel").style.display === "none" ? "flex" : "none"; };
