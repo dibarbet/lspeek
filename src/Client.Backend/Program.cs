@@ -46,7 +46,10 @@ builder.Services.Configure<JsonOptions>(o =>
 
 var app = builder.Build();
 var manager = app.Services.GetRequiredService<InstanceManager>();
-var indexHtml = LoadIndexHtml();
+var indexHtml = LoadEmbeddedText("index.html")
+    ?? "<!doctype html><title>lspeek</title><p>UI resource missing.</p>";
+var logExportJs = LoadEmbeddedText("logExport.mjs")
+    ?? "throw new Error('Log export resource missing.');";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 static BackendInstance Inst(HttpContext http, InstanceManager mgr) => mgr.Get(http.Request.Query["instance"]);
@@ -60,6 +63,7 @@ app.MapGet("/", (HttpContext http) =>
     var html = indexHtml.Replace("__INSTANCE_ID__", instanceId);
     return Results.Content(html, "text/html; charset=utf-8");
 });
+app.MapGet("/logExport.mjs", () => Results.Content(logExportJs, "text/javascript; charset=utf-8"));
 
 // All /api endpoints share one error-handling filter (ApiExceptionFilter) that maps any thrown
 // exception to the right status code + ErrorResponse envelope, so each handler is just its happy path.
@@ -237,12 +241,12 @@ static async Task WatchParentAsync(int pid, IHostApplicationLifetime lifetime)
     lifetime.StopApplication();
 }
 
-static string LoadIndexHtml()
+static string? LoadEmbeddedText(string suffix)
 {
     var assembly = Assembly.GetExecutingAssembly();
-    var name = assembly.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("index.html", StringComparison.Ordinal));
+    var name = assembly.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(suffix, StringComparison.Ordinal));
     if (name is null)
-        return "<!doctype html><title>lspeek</title><p>UI resource missing.</p>";
+        return null;
     using var stream = assembly.GetManifestResourceStream(name)!;
     using var reader = new StreamReader(stream, Encoding.UTF8);
     return reader.ReadToEnd();

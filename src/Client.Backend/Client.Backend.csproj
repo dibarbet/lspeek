@@ -123,6 +123,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="WebUi\index.html" />
+    <EmbeddedResource Include="WebUi\logExport.mjs" />
   </ItemGroup>
 
   <ItemGroup>
