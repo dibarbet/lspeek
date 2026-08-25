@@ -36,7 +36,7 @@ const hostFileName = isWindows ? `${EXECUTABLE_NAME}.exe` : EXECUTABLE_NAME;
 const extensionDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Resolve how to launch the backend: { command, args, timeoutMs? } where command is a native
+ * Resolve how to launch the backend: { command, args, cwd?, timeoutMs? } where command is a native
  * apphost (args === []), "dotnet" with ["exec", <dll>], or "dotnet" with ["dnx", ...] to fetch
  * and run the published tool. timeoutMs overrides the handshake budget for the slow dnx path.
  */
@@ -57,7 +57,13 @@ function resolveLaunch() {
  * (cached after the first run) and runs it.
  */
 function dnxLaunch() {
-    return { command: "dotnet", args: ["dnx", "--yes", DNX_PACKAGE_ID], timeoutMs: DNX_HANDSHAKE_TIMEOUT_MS };
+    return {
+        command: "dotnet",
+        args: ["dnx", "--yes", DNX_PACKAGE_ID],
+        // Avoid applying an unrelated workspace's NuGet.config to package acquisition.
+        cwd: extensionDir,
+        timeoutMs: DNX_HANDSHAKE_TIMEOUT_MS,
+    };
 }
 
 function isDirectory(p) {
@@ -162,6 +168,7 @@ export class BackendProcess {
                 "--parent-pid", String(process.pid),
             ];
             const child = spawn(launch.command, args, {
+                cwd: launch.cwd,
                 stdio: ["pipe", "pipe", "pipe"],
                 windowsHide: true,
             });
